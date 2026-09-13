@@ -1,0 +1,46 @@
+name: Prévisions Wimereux
+
+on:
+  schedule:
+    # Toutes les 3 heures (horaires en UTC : ajoute 1h en hiver, 2h en été)
+    - cron: "10 */3 * * *"
+  workflow_dispatch:        # bouton "Run workflow" pour lancer à la main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: previsions
+  cancel-in-progress: true
+
+jobs:
+  calculer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Calculer les notes
+        env:
+          API_MAREE_KEY: ${{ secrets.API_MAREE_KEY }}
+          SITE_MAREE_WIMEREUX: ${{ vars.SITE_MAREE_WIMEREUX || 'boulogne-sur-mer' }}
+          SITE_MAREE_CALAIS: ${{ vars.SITE_MAREE_CALAIS || 'calais' }}
+        run: python previsions.py --heures 96 --json docs/data.json
+
+      - name: Archiver la prévision du jour
+        # Une copie datée par jour : c'est cette archive qui permettra plus tard
+        # de comparer ce qui était prévu à J-3 avec ce qui s'est réellement passé.
+        run: |
+          mkdir -p archives
+          cp docs/data.json "archives/$(date -u +%Y-%m-%d).json"
+
+      - name: Publier
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json archives/
+          git diff --staged --quiet || git commit -m "Prévisions $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push

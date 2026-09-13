@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123239">
+<link rel="manifest" href="manifest.json">
+<title>Côte d'Opale — conditions de surf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brume:   #DCE4E3;
+    --craie:   #F4F7F6;
+    --ardoise: #123239;
+    --galet:   #6B7F83;
+    --eau:     #B4CBD1;
+    --trait:   #C2CFCE;
+    /* échelle de notes, du plus mauvais au meilleur */
+    --n1: #A6453A;
+    --n2: #C0762A;
+    --n3: #96851B;
+    --n4: #4C8A45;
+    --n5: #1C7A5D;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0 auto;
+    padding: 0 0 3rem;
+    background: var(--brume);
+    color: var(--ardoise);
+    font-family: "Barlow Semi Condensed", "Roboto Condensed", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    max-width: 46rem;
+  }
+
+  h1, h2 { font-weight: 500; margin: 0; }
+  .marge { padding-inline: 1rem; }
+
+  .barre {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; padding: 1rem 1rem 0.8rem;
+    border-bottom: 1px solid var(--trait);
+  }
+  .barre h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; }
+  .maj { color: var(--galet); font-size: 0.82rem; }
+
+  /* ---- sélecteur de spot ---- */
+  .spots {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+    padding: 0.9rem 1rem 0.4rem;
+  }
+  .carte-spot {
+    display: flex; align-items: center; gap: 0.65rem;
+    padding: 0.55rem 0.65rem; text-align: left; cursor: pointer;
+    font: inherit; color: inherit; background: transparent;
+    border: 1px solid var(--trait); border-bottom-width: 3px;
+    border-radius: 2px; min-width: 0;
+  }
+  .carte-spot:hover { border-color: var(--galet); }
+  .carte-spot[aria-pressed="true"] {
+    background: var(--craie); border-color: var(--trait);
+    border-bottom-color: var(--ardoise);
+  }
+  .carte-spot:focus-visible { outline: 2px solid var(--ardoise); outline-offset: 2px; }
+  .carte-spot .infos { min-width: 0; }
+  .carte-spot .nom {
+    font-family: Fraunces, Georgia, serif; font-size: 1.05rem;
+    line-height: 1.15; display: block;
+  }
+  .carte-spot .quand-mini {
+    font-size: 0.78rem; color: var(--galet); display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .carte-spot[aria-pressed="true"] .quand-mini { color: var(--ardoise); }
+
+  /* ---- détail du meilleur créneau du spot actif ---- */
+  .phare {
+    padding: 0.3rem 1rem 1rem; border-bottom: 1px solid var(--trait);
+    font-size: 0.88rem; color: var(--galet);
+    font-variant-numeric: tabular-nums;
+  }
+  .phare b { color: var(--ardoise); font-weight: 600; }
+
+  /* ---- journée ---- */
+  .journee { border-bottom: 1px solid var(--trait); padding-bottom: 0.9rem; }
+  .journee h2 { font-size: 1rem; font-weight: 600; padding-top: 1rem; }
+  .apercu {
+    color: var(--galet); font-size: 0.85rem; margin: 0.15rem 0 0.6rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .apercu b { color: var(--ardoise); font-weight: 600; }
+
+  /* ---- tableau horaire ---- */
+  .cadre { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td {
+    padding: 0.22rem 0.3rem; text-align: center; font-weight: 400;
+    font-size: 0.84rem; white-space: nowrap; border-bottom: 1px solid #0000000d;
+  }
+  th.libelle {
+    position: sticky; left: 0; z-index: 2;
+    background: var(--brume); text-align: left; color: var(--galet);
+    padding-left: 1rem; padding-right: 0.5rem; font-size: 0.78rem;
+  }
+  tr.heures th { font-weight: 600; font-size: 0.82rem; padding-bottom: 0.35rem; }
+  tr.heures th.libelle { font-weight: 400; }
+  td { min-width: 2.5rem; }
+  .creux { color: var(--galet); }
+  .pointe { font-weight: 600; }
+  tr.separe td, tr.separe th { border-top: 1px solid var(--trait); }
+  .fleche { display: inline-block; font-size: 0.95rem; line-height: 1; }
+  .colonne-top { background: #ffffff5c; }
+
+  .badge { display: block; margin: 0 auto; }
+
+  /* Barres de marée : hauteur = niveau d'eau, couleur = note de marée. */
+  td.maree { padding: 0 0.3rem 0.1rem; vertical-align: bottom; height: 32px; }
+  .colonne-eau {
+    display: block;          /* un span reste inline : sans ça, la hauteur est ignorée */
+    position: relative; height: 30px; width: 100%; min-width: 2rem;
+    border-bottom: 1px solid var(--trait);
+  }
+  .colonne-eau i {
+    position: absolute; bottom: 0; left: 22%; right: 22%;
+    border-radius: 1px 1px 0 0; display: block;
+  }
+  .niveau { font-size: 0.74rem; color: var(--galet); line-height: 1.5; }
+
+  /* Le courant est un bonus : détaché du bloc noté, en retrait visuel. */
+  tr.bonus th, tr.bonus td {
+    border-top: 2px solid var(--trait); padding-top: 0.35rem;
+    font-size: 0.76rem; color: var(--galet);
+  }
+  tr.bonus th.libelle { font-style: italic; }
+  .alerte-orage {
+    display: flex; gap: 0.6rem; align-items: baseline;
+    margin: 0.3rem 1rem 0.7rem; padding: 0.5rem 0.7rem;
+    background: #A6453A14; border-left: 3px solid var(--n1);
+    font-size: 0.86rem;
+  }
+  .alerte-orage b { color: var(--n1); }
+
+  .pastille {
+    display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%;
+    vertical-align: baseline;
+  }
+
+  footer { padding: 1.2rem 1rem 0; color: var(--galet); font-size: 0.76rem; line-height: 1.5; }
+  footer a { color: var(--galet); }
+  .vide, .erreur { padding: 2.5rem 1rem; color: var(--galet); }
+  .erreur { color: var(--n2); }
+</style>
+</head>
+<body>
+
+<div class="barre">
+  <h1>Côte d'Opale</h1>
+  <span class="maj" id="maj"></span>
+</div>
+
+<main id="contenu"><p class="vide">Chargement des conditions…</p></main>
+
+<footer>
+  Houle et vent : Open-Meteo (modèles EWAM et GWAM).
+  Données de marée fournies par <a href="https://api-maree.fr/">api-maree.fr</a>
+  sous licence CC BY, calculées à partir de composantes harmoniques
+  Ifremer / PREVIMER, elles-mêmes sous licence CC BY.
+  <br>Énergie : flux de puissance de la houle, 0,49 × Hs² × T, en kilojoules
+  par seconde et par mètre de crête. ξ : nombre d'Iribarren, seuils calibrés
+  pour une plage dissipative. RTR : marnage rapporté à la hauteur de houle.
+  Translation : vitesse de déplacement du bord de l'eau sur l'estran.
+  Le courant est indicatif et n'entre pas dans la note.
+  <br>Orage : combiné du code météo, de la CAPE et de l'indice de soulèvement,
+  étendu aux deux heures voisines. Un risque élevé met la note à zéro.
+  Sur l'eau, la règle est de sortir dès le premier coup de tonnerre et
+  d'attendre trente minutes après le dernier avant de repartir.
+</footer>
+
+<script>
+const JOURS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+const MOIS  = ["janv.","févr.","mars","avril","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+
+const el = (t, c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
+const couleur = n => `var(--n${Math.max(1, Math.min(5, Math.round(n)))})`;
+
+function rose(deg) {
+  const p = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
+  return p[Math.round(deg / 22.5) % 16];
+}
+
+// Étoile portant sa note, colorée de rouge (1) à vert (5).
+function etoile(note, taille) {
+  const n = Math.max(1, Math.min(5, Math.round(note)));
+  return `<svg class="badge" width="${taille}" height="${taille}" viewBox="0 0 24 24"
+       role="img" aria-label="note ${note} sur 5">
+    <path d="M12 1.6l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.4l-6.2 3.2 1.2-6.8-5-4.9 6.9-1z"
+          fill="${couleur(n)}"/>
+    <text x="12" y="14.6" text-anchor="middle" font-size="9.5" font-weight="700"
+          fill="#fff" font-family="Barlow Semi Condensed, sans-serif">${n}</text>
+  </svg>`;
+}
+
+// La flèche pointe dans le sens où ça va, comme sur Windguru :
+// un vent de sud (180°) est représenté par une flèche vers le haut.
+const fleche = deg => `<span class="fleche" style="transform:rotate(${(deg + 180) % 360}deg)">↑</span>`;
+
+let BORNES = [0, 1];
+
+function tableauJournee(creneaux, meilleurGlobal) {
+  const cadre = el("div", "cadre");
+  const t = el("table");
+  const noteMax = Math.max(...creneaux.map(c => c.note_totale));
+
+  const lignes = [
+    { cle: "heures", libelle: "" },
+    { cle: "note",   libelle: "note" },
+    { cle: "orage",  libelle: "orage" },
+    { cle: "hauteur", libelle: "houle m", sep: true },
+    { cle: "periode", libelle: "période s" },
+    { cle: "dirhoule", libelle: "direction" },
+    { cle: "energie", libelle: "énergie kJ" },
+    { cle: "xi",      libelle: "déferl. ξ" },
+    { cle: "vent",   libelle: "vent nds", sep: true },
+    { cle: "rafales", libelle: "rafales" },
+    { cle: "dirvent", libelle: "direction" },
+    { cle: "eau",    libelle: "marée m", sep: true },
+    { cle: "phase",  libelle: "" },
+    { cle: "transl", libelle: "transl. m/min" },
+    { cle: "courant", libelle: "courant", bonus: true },
+  ];
+
+  lignes.forEach(ligne => {
+    const tr = el("tr", ligne.bonus ? "bonus"
+      : ligne.sep ? "separe" : (ligne.cle === "heures" ? "heures" : ""));
+    const th = el("th", "libelle");
+    th.textContent = ligne.libelle;
+    tr.append(th);
+
+    creneaux.forEach((c, i) => {
+      const cel = el(ligne.cle === "heures" ? "th" : "td");
+      if (c.instant === meilleurGlobal) cel.classList.add("colonne-top");
+      const d = new Date(c.instant);
+
+      switch (ligne.cle) {
+        case "heures":
+          cel.textContent = String(d.getHours()).padStart(2, "0");
+          break;
+        case "note":
+          cel.innerHTML = etoile(c.note_totale, 26);
+          cel.title = `${c.note_totale.toFixed(1)} / 5`;
+          break;
+        case "hauteur":
+          cel.textContent = c.hauteur_m.toFixed(2);
+          if (c.note_totale === noteMax) cel.classList.add("pointe");
+          break;
+        case "periode":
+          cel.textContent = c.tpeak_s.toFixed(1);
+          break;
+        case "dirhoule":
+          cel.innerHTML = fleche(c.dir_houle);
+          cel.title = `${rose(c.dir_houle)} ${c.dir_houle}°`;
+          break;
+        case "energie":
+          cel.textContent = c.energie_kwm >= 10 ? Math.round(c.energie_kwm) : c.energie_kwm.toFixed(1);
+          break;
+        case "orage": {
+          const n = c.risque_orage;
+          if (n === "nul") { cel.innerHTML = `<span class="creux">–</span>`; break; }
+          const teintes = { "faible": "var(--n3)", "modéré": "var(--n2)", "élevé": "var(--n1)" };
+          cel.innerHTML = n === "élevé"
+            ? `<span style="color:var(--n1);font-weight:600">⚡</span>`
+            : `<span class="pastille" style="background:${teintes[n]}"></span>`;
+          cel.title = `risque d'orage ${n}`
+            + (c.cape != null ? ` · CAPE ${Math.round(c.cape)} J/kg` : "")
+            + (c.lifted_index != null ? ` · indice ${c.lifted_index}` : "");
+          break;
+        }
+        case "xi": {
+          // Sur une plage dissipative, xi reste bas : les seuils sont
+          // relatifs au site, pas ceux de Battjes.
+          cel.textContent = c.xi.toFixed(2);
+          cel.style.color = c.xi >= 0.32 ? "var(--n5)" : c.xi < 0.15 ? "var(--n1)" : "";
+          cel.title = (c.xi >= 0.32 ? "déferlement franc"
+                     : c.xi < 0.15 ? "mer molle, déferlement étalé" : "intermédiaire")
+                     + (c.mer_locale ? " · mer levée par le vent local" : " · houle venue d'ailleurs");
+          break;
+        }
+        case "transl":
+          cel.textContent = c.translation_m_min.toFixed(1);
+          cel.style.color = couleur(c.note_stabilite);
+          cel.title = `zone de déferlement : ${c.translation_m_min < 0.6 ? "stationnaire" : c.translation_m_min > 2.2 ? "balaie le profil" : "se déplace"}`;
+          break;
+        case "courant": {
+          if (!c.courant_effet || c.courant_effet === "négligeable") {
+            cel.textContent = "–";
+            break;
+          }
+          const favorable = c.courant_effet.includes("favorable")
+            && !c.courant_effet.includes("défavorable");
+          const teinte = favorable ? "var(--n5)"
+            : c.courant_effet.includes("défavorable") ? "var(--n1)" : "var(--galet)";
+          cel.innerHTML = `<span class="pastille" style="background:${teinte}"></span>`;
+          cel.title = `${c.courant_effet}${c.courant_kt ? ` · ${c.courant_kt.toFixed(1)} nds` : ""}`;
+          break;
+        }
+        case "vent":
+          cel.textContent = Math.round(c.vitesse_kt);
+          cel.style.color = couleur(c.note_vent);
+          cel.classList.add("pointe");
+          cel.title = c.cat_vent;
+          break;
+        case "rafales":
+          cel.textContent = Math.round(c.rafales_kt);
+          cel.classList.add("creux");
+          break;
+        case "dirvent":
+          cel.innerHTML = fleche(c.dir_vent);
+          cel.title = `${rose(c.dir_vent)} ${c.dir_vent}° · ${c.cat_vent}`;
+          break;
+        case "eau": {
+          cel.classList.add("maree");
+          if (c.hauteur_eau_m === null || c.hauteur_eau_m === undefined) {
+            cel.textContent = "—";
+            break;
+          }
+          // Hauteur de barre relative aux bornes de toute la période, pour que
+          // les journées de vive-eau et de morte-eau restent comparables.
+          const f = (c.hauteur_eau_m - BORNES[0]) / Math.max(0.01, BORNES[1] - BORNES[0]);
+          const px = Math.max(2, Math.round(3 + f * 26));
+          cel.innerHTML = `<span class="colonne-eau"><i style="height:${px}px;background:${couleur(c.note_maree)}"></i></span>`;
+          cel.title = `${c.hauteur_eau_m.toFixed(1)} m · pleine mer ${c.heures_depuis_pm >= 0 ? "+" : "−"}${Math.abs(c.heures_depuis_pm).toFixed(1)} h`;
+          break;
+        }
+        case "phase":
+          cel.className = "niveau" + (c.instant === meilleurGlobal ? " colonne-top" : "");
+          cel.textContent = c.hauteur_eau_m === null || c.hauteur_eau_m === undefined
+            ? "" : c.hauteur_eau_m.toFixed(1);
+          break;
+      }
+      tr.append(cel);
+    });
+    t.append(tr);
+  });
+
+  cadre.append(t);
+  return cadre;
+}
+
+function apercuJournee(r) {
+  const p = el("p", "apercu marge");
+  const marees = r.marees
+    .filter(m => m.type === "PM")
+    .map(m => `PM ${m.heure}${m.coef ? ` (${m.coef})` : ""}`)
+    .join(" · ");
+  p.innerHTML = `${marees || "—"} &nbsp;|&nbsp; jour ${r.lever}–${r.coucher}
+    &nbsp;|&nbsp; marnage ${r.marnage_m} m · RTR <b>${r.rtr}</b>
+    &nbsp;|&nbsp; jusqu'à <b>${Math.round(r.energie_max_kwm)} kJ</b>
+    &nbsp;|&nbsp; meilleur <b>${r.meilleure_heure}</b>`;
+  p.title = r.rtr > 8
+    ? "RTR élevé : la marée domine les vagues, la zone de surf se définit mal"
+    : "RTR modéré : la plage reste dominée par les vagues";
+  return p;
+}
+
+function alerteOrage(r) {
+  if (!r || !["modéré", "élevé"].includes(r.orage_max)) return null;
+  const d = el("div", "alerte-orage");
+  const heures = (r.heures_orage || []).join(", ");
+  d.innerHTML = r.orage_max === "élevé"
+    ? `<span>&#9889;</span><span><b>Orage prévu${heures ? ` vers ${heures}` : ""}.</b>
+       Ces créneaux sont notés zéro : on ne surfe pas sous l'orage.</span>`
+    : `<span>&#9889;</span><span><b>Atmosphère instable.</b>
+       Risque orageux modéré sur la journée, notes plafonnées. Surveille le ciel
+       et sors de l'eau au premier coup de tonnerre.</span>`;
+  return d;
+}
+
+let DONNEES = null;
+let SPOT_ACTIF = 0;
+
+function carteSpot(spot, index) {
+  const b = el("button", "carte-spot");
+  b.type = "button";
+  b.setAttribute("aria-pressed", String(index === SPOT_ACTIF));
+  const meilleur = [...spot.creneaux].sort((a, z) => z.note_totale - a.note_totale)[0];
+  if (!meilleur) {
+    b.innerHTML = `<div class="infos"><span class="nom">${spot.nom}</span>
+      <span class="quand-mini">pas de données</span></div>`;
+  } else {
+    const d = new Date(meilleur.instant);
+    b.innerHTML = `${etoile(meilleur.note_totale, 34)}
+      <div class="infos">
+        <span class="nom">${spot.nom}</span>
+        <span class="quand-mini">${JOURS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MOIS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}h · ${meilleur.note_totale.toFixed(1)}/5</span>
+      </div>`;
+  }
+  b.addEventListener("click", () => {
+    if (index === SPOT_ACTIF) return;
+    SPOT_ACTIF = index;
+    afficher();
+  });
+  return b;
+}
+
+function afficher() {
+  const contenu = document.getElementById("contenu");
+  contenu.innerHTML = "";
+
+  // Sélecteur : les deux spots côte à côte, avec leur meilleur créneau.
+  const barre = el("div", "spots");
+  DONNEES.spots.forEach((sp, i) => barre.append(carteSpot(sp, i)));
+  contenu.append(barre);
+
+  const spot = DONNEES.spots[SPOT_ACTIF];
+  if (!spot || !spot.creneaux.length) {
+    contenu.insertAdjacentHTML("beforeend",
+      `<p class="vide">Aucun créneau de jour pour ce spot.</p>`);
+    return;
+  }
+
+  // Les bornes de marée sont propres au spot : deux ports différents,
+  // deux marnages différents.
+  const eaux = spot.creneaux.map(c => c.hauteur_eau_m)
+    .filter(v => v !== null && v !== undefined);
+  BORNES = eaux.length ? [Math.min(...eaux), Math.max(...eaux)] : [0, 1];
+
+  const best = [...spot.creneaux].sort((a, z) => z.note_totale - a.note_totale)[0];
+  const pic = spot.pic_maree_h;
+  const quandMaree = pic > 0 ? `${pic} h après la pleine mer`
+    : pic < 0 ? `${Math.abs(pic)} h avant la pleine mer` : "à la pleine mer";
+  const detail = el("p", "phare");
+  detail.innerHTML = `Meilleur créneau : <b>${best.hauteur_m.toFixed(2)} m à
+    ${best.tpeak_s.toFixed(1)} s</b> · ${Math.round(best.energie_kwm)} kJ ·
+    vent ${Math.round(best.vitesse_kt)} nds ${rose(best.dir_vent)}${
+      best.risque_orage && best.risque_orage !== "nul"
+        ? ` · <span style="color:var(--n1)">orage ${best.risque_orage}</span>` : ""}
+    <br>Houle attendue de ${spot.bouee}, optimum ${quandMaree}.`;
+  contenu.append(detail);
+
+  const resumes = {};
+  (spot.journees || []).forEach(r => { resumes[r.date] = r; });
+
+  const parJour = {};
+  spot.creneaux.forEach(c => {
+    const k = c.instant.slice(0, 10);
+    (parJour[k] = parJour[k] || []).push(c);
+  });
+
+  Object.keys(parJour).sort().forEach(k => {
+    const bloc = el("section", "journee");
+    const d = new Date(k);
+    const titre = el("h2", "marge");
+    titre.textContent = `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]}`;
+    bloc.append(titre);
+    if (resumes[k]) bloc.append(apercuJournee(resumes[k]));
+    const alerte = alerteOrage(resumes[k]);
+    if (alerte) bloc.append(alerte);
+    bloc.append(tableauJournee(parJour[k], best.instant));
+    contenu.append(bloc);
+  });
+}
+
+function rendre(data) {
+  DONNEES = data;
+  const maj = new Date(data.genere_le);
+  document.getElementById("maj").textContent =
+    `mis à jour ${String(maj.getHours()).padStart(2, "0")}h${String(maj.getMinutes()).padStart(2, "0")}`;
+  afficher();
+}
+
+fetch("data.json?" + Date.now())
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(rendre)
+  .catch(() => {
+    document.getElementById("contenu").innerHTML =
+      `<p class="erreur">Les prévisions n'ont pas pu être chargées. La dernière mise à jour a peut-être échoué — vérifie l'onglet Actions du dépôt.</p>`;
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "Côte d'Opale — conditions de surf",
+  "short_name": "Surf Opale",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#DCE4E3",
+  "theme_color": "#123239"
+}
