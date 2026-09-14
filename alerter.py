@@ -23,6 +23,20 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+try:
+    from zoneinfo import ZoneInfo
+    _ZONE = ZoneInfo("Europe/Paris")
+except Exception:
+    _ZONE = None
+
+
+def maintenant():
+    """Heure française sans tenir compte du fuseau de la machine, et sans
+    décalage attaché, pour se comparer aux créneaux qui sont déjà en heure
+    locale."""
+    d = datetime.now(_ZONE) if _ZONE else datetime.now()
+    return d.replace(tzinfo=None)
+
 RACINE = Path(__file__).parent
 DONNEES = RACINE / "docs" / "data.json"
 ETAT = RACINE / "etat_alertes.json"
@@ -50,7 +64,7 @@ def charger_etat() -> set[str]:
 
 def enregistrer_etat(cles: set[str]) -> None:
     """On ne garde que le futur proche : l'état ne doit pas grossir sans fin."""
-    limite = datetime.now() - timedelta(days=1)
+    limite = maintenant() - timedelta(days=1)
     vivantes = []
     for c in cles:
         try:
@@ -76,7 +90,7 @@ def main() -> int:
 
     data = json.loads(DONNEES.read_text(encoding="utf-8"))
     deja = charger_etat()
-    maintenant = datetime.now()
+    reference = maintenant()
 
     nouveaux = []
     toutes_cles = set(deja)
@@ -85,7 +99,7 @@ def main() -> int:
             if c["note_totale"] < args.seuil:
                 continue
             instant = datetime.fromisoformat(c["instant"])
-            if instant <= maintenant:           # inutile de prévenir pour du passé
+            if instant <= reference:           # inutile de prévenir pour du passé
                 continue
             cle = f"{spot['cle']}|{c['instant']}"
             toutes_cles.add(cle)

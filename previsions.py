@@ -51,6 +51,21 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
+try:
+    from zoneinfo import ZoneInfo
+    _ZONE = ZoneInfo("Europe/Paris")
+except Exception:          # tzdata absent : on retombe sur l'horloge système
+    _ZONE = None
+
+
+def maintenant():
+    """
+    Heure locale française, quel que soit le fuseau de la machine. Les
+    serveurs GitHub tournent en temps universel : sans ça, l'horodatage
+    publié serait en retard d'une à deux heures selon la saison.
+    """
+    return datetime.now(_ZONE) if _ZONE else datetime.now()
+
 # ==========================================================================
 # CONFIGURATION DES SPOTS
 # ==========================================================================
@@ -968,7 +983,8 @@ def exporter_json(resultats: dict, chemin: Path) -> None:
     """
     chemin.parent.mkdir(parents=True, exist_ok=True)
     charge = {
-        "genere_le": datetime.now().isoformat(timespec="minutes"),
+        # Avec le décalage explicite : le navigateur sait alors le convertir.
+        "genere_le": maintenant().isoformat(timespec="minutes"),
         "spots": [
             {
                 "cle": cle,
