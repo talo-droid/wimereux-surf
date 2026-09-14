@@ -50,34 +50,39 @@
   .barre h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; }
   .maj { color: var(--galet); font-size: 0.82rem; }
 
-  /* ---- sélecteur de spot ---- */
+  /* ---- sélecteur de spot : pavillon ---- */
   .spots {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
     padding: 0.9rem 1rem 0.4rem;
   }
   .carte-spot {
-    display: flex; align-items: center; gap: 0.65rem;
-    padding: 0.55rem 0.65rem; text-align: left; cursor: pointer;
-    font: inherit; color: inherit; background: transparent;
-    border: 1px solid var(--trait); border-bottom-width: 3px;
-    border-radius: 2px; min-width: 0;
+    display: flex; gap: 0.6rem; align-items: stretch;
+    padding: 0.5rem 0.6rem 0.5rem 0; min-width: 0;
+    background: transparent; border: none; cursor: pointer;
+    font: inherit; color: inherit; text-align: left;
   }
-  .carte-spot:hover { border-color: var(--galet); }
-  .carte-spot[aria-pressed="true"] {
-    background: var(--craie); border-color: var(--trait);
-    border-bottom-color: var(--ardoise);
-  }
+  .carte-spot[aria-pressed="true"] { background: var(--craie); }
   .carte-spot:focus-visible { outline: 2px solid var(--ardoise); outline-offset: 2px; }
-  .carte-spot .infos { min-width: 0; }
+  /* Le mât : remplissage proportionnel à la note, couleur de l'échelle. */
+  .carte-spot .mat {
+    width: 6px; flex: none; align-self: stretch;
+    background: var(--trait); position: relative;
+  }
+  .carte-spot .mat i { position: absolute; left: 0; right: 0; bottom: 0; display: block; }
+  .carte-spot .corps { min-width: 0; }
   .carte-spot .nom {
     font-family: Fraunces, Georgia, serif; font-size: 1.05rem;
-    line-height: 1.15; display: block;
+    display: block; line-height: 1.15; color: var(--galet);
   }
-  .carte-spot .quand-mini {
-    font-size: 0.78rem; color: var(--galet); display: block;
+  .carte-spot[aria-pressed="true"] .nom { color: var(--ardoise); }
+  .carte-spot .val {
+    font-family: Fraunces, Georgia, serif; font-size: 1.6rem; line-height: 1.05;
+    display: block; font-variant-numeric: tabular-nums;
+  }
+  .carte-spot .quand {
+    font-size: 0.76rem; color: var(--galet); display: block;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .carte-spot[aria-pressed="true"] .quand-mini { color: var(--ardoise); }
 
   /* ---- détail du meilleur créneau du spot actif ---- */
   .phare {
@@ -388,18 +393,24 @@ function carteSpot(spot, index) {
   const b = el("button", "carte-spot");
   b.type = "button";
   b.setAttribute("aria-pressed", String(index === SPOT_ACTIF));
+
   const meilleur = [...spot.creneaux].sort((a, z) => z.note_totale - a.note_totale)[0];
   if (!meilleur) {
-    b.innerHTML = `<div class="infos"><span class="nom">${spot.nom}</span>
-      <span class="quand-mini">pas de données</span></div>`;
+    b.innerHTML = `<span class="mat"></span><span class="corps">
+      <span class="nom">${spot.nom}</span>
+      <span class="quand">pas de données</span></span>`;
   } else {
     const d = new Date(meilleur.instant);
-    b.innerHTML = `${etoile(meilleur.note_totale, 34)}
-      <div class="infos">
+    const n = meilleur.note_totale;
+    b.innerHTML = `
+      <span class="mat"><i style="height:${Math.max(3, n / 5 * 100)}%;background:${couleur(n)}"></i></span>
+      <span class="corps">
         <span class="nom">${spot.nom}</span>
-        <span class="quand-mini">${JOURS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MOIS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}h · ${meilleur.note_totale.toFixed(1)}/5</span>
-      </div>`;
+        <span class="val" style="color:${couleur(n)}">${n.toFixed(1)}</span>
+        <span class="quand">${JOURS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MOIS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}h</span>
+      </span>`;
   }
+
   b.addEventListener("click", () => {
     if (index === SPOT_ACTIF) return;
     SPOT_ACTIF = index;
