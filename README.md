@@ -133,6 +133,43 @@ partir de composantes harmoniques Ifremer / PREVIMER, elles-mêmes sous licence
 CC BY. Houle, vent, courant et indices convectifs : Open-Meteo (modèles DWD
 EWAM et GWAM pour la houle).
 
+## Recevoir une notification
+
+Le workflow prévient quand un créneau dépasse un seuil, par le service
+**ntfy** : gratuit, sans compte, et l'application Android reçoit la
+notification directement.
+
+1. Installe *ntfy* depuis le Play Store.
+2. Choisis un sujet à toi, long et peu devinable — par exemple
+   `opale-surf-8kq2vx`. Toute personne connaissant ce mot peut lire tes
+   notifications, alors évite `surf` ou ton prénom.
+3. Dans l'application, abonne-toi à ce sujet.
+4. Dans le dépôt, *Settings → Secrets and variables → Actions → Secrets*,
+   crée `NTFY_TOPIC` avec ce même mot.
+
+Le seuil vaut 3 par défaut. Pour le changer, ajoute une *variable* (pas un
+secret) nommée `SEUIL_ALERTE`, par exemple `3.5`.
+
+Sans le secret, l'étape est simplement ignorée : le reste du workflow
+fonctionne normalement.
+
+`alerter.py` retient dans `etat_alertes.json` les créneaux déjà annoncés.
+Sans cette mémoire, le même bon créneau te serait signalé huit fois par jour.
+Un créneau n'est annoncé qu'une fois, et seulement s'il est encore à venir.
+Pour voir ce qui partirait sans rien envoyer ni rien mémoriser :
+
+```
+python3 alerter.py --seuil 3 --essai
+```
+
+### Par courriel plutôt que par notification
+
+Si tu préfères un mail, l'astuce sans service tiers consiste à faire créer une
+*issue* par le workflow : GitHub envoie nativement un courriel pour chaque
+issue ouverte sur un dépôt que tu surveilles. Remplace l'étape « Notifier »
+par un appel à `gh issue create` avec le contenu de `message.txt`. Le revers
+est que l'onglet Issues se remplit et qu'il faut les refermer.
+
 ## Sécurité
 
 Le risque d'orage est un véto : une heure classée « élevé » est notée zéro
