@@ -129,6 +129,14 @@
   tr.heures th.libelle { font-weight: 400; }
   td { min-width: 2.5rem; }
   .creux { color: var(--galet); }
+
+  /* Cellules à fond coloré : l'intensité se lit à la teinte, comme sur
+     Windguru, mais en pastel pour rester lisible en plein soleil. */
+  td.fond { padding: 1px 2px; }
+  .bloc {
+    display: block; border-radius: 5px; padding: 3px 4px;
+    color: var(--ardoise); line-height: 1.25;
+  }
   .pointe { font-weight: 600; }
   tr.separe td, tr.separe th { border-top: 1px solid var(--trait); }
   .fleche { display: inline-block; font-size: 0.95rem; line-height: 1; }
@@ -368,6 +376,28 @@ const couleur = n => Math.round(n) < 1
   ? "var(--galet)"                       // note nulle : véto, pas une mauvaise note
   : `var(--n${Math.min(5, Math.round(n))})`;
 
+// Vitesse de vent en nœuds. Bleu pâle pour le calme, puis vert, jaune,
+// ambre, orange, rouge et enfin mauve au-delà de 35 nœuds.
+const ECHELLE_VENT = [
+  [5, "#ECF2F3"], [10, "#D6E8EC"], [15, "#CDE6D7"], [20, "#E5EAC1"],
+  [25, "#F2DFB5"], [30, "#F1CDB5"], [35, "#ECBFBD"], [Infinity, "#E1BDD1"],
+];
+
+// Hauteur de houle en mètres, du gris neutre au vert pâle.
+const ECHELLE_HOULE = [
+  [0.3, "#E7EAEA"], [0.6, "#DDE7E1"], [0.9, "#D3E5D9"], [1.2, "#C6E2CF"],
+  [1.6, "#B5DDC3"], [2.2, "#A3D7B5"], [Infinity, "#90D0A7"],
+];
+
+function teinte(valeur, echelle) {
+  for (const [borne, couleur] of echelle) if (valeur < borne) return couleur;
+  return echelle[echelle.length - 1][1];
+}
+
+function bloc(texte, fond) {
+  return `<span class="bloc" style="background:${fond}">${texte}</span>`;
+}
+
 function rose(deg) {
   const p = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
   return p[Math.round(deg / 22.5) % 16];
@@ -450,7 +480,8 @@ function tableauJournee(creneaux, meilleurGlobal) {
           break;
         }
         case "hauteur":
-          cel.textContent = c.hauteur_m.toFixed(2);
+          cel.classList.add("fond");
+          cel.innerHTML = bloc(c.hauteur_m.toFixed(2), teinte(c.hauteur_m, ECHELLE_HOULE));
           if (c.note_totale === noteMax) cel.classList.add("pointe");
           break;
         case "periode":
@@ -504,14 +535,18 @@ function tableauJournee(creneaux, meilleurGlobal) {
           break;
         }
         case "vent":
-          cel.textContent = Math.round(c.vitesse_kt);
-          cel.style.color = couleur(c.note_vent);
-          cel.classList.add("pointe");
-          cel.title = c.cat_vent;
+          cel.classList.add("fond", "pointe");
+          cel.innerHTML = bloc(Math.round(c.vitesse_kt),
+                               teinte(c.vitesse_kt, ECHELLE_VENT));
+          // La qualité du secteur passe dans l'infobulle : le fond ne dit
+          // plus que la force, comme sur Windguru.
+          cel.title = `${Math.round(c.vitesse_kt)} nds ${rose(c.dir_vent)} · ${c.cat_vent}`;
           break;
         case "rafales":
-          cel.textContent = Math.round(c.rafales_kt);
-          cel.classList.add("creux");
+          cel.classList.add("fond");
+          cel.innerHTML = bloc(Math.round(c.rafales_kt),
+                               teinte(c.rafales_kt, ECHELLE_VENT));
+          cel.title = `rafales ${Math.round(c.rafales_kt)} nds`;
           break;
         case "dirvent":
           cel.innerHTML = fleche(c.dir_vent);
