@@ -16,6 +16,11 @@ concurrency:
 jobs:
   calculer:
     runs-on: ubuntu-latest
+    env:
+      # Les serveurs GitHub tournent en temps universel. Sans ça, l'heure de
+      # génération affichée sur la page est en retard de une à deux heures
+      # selon la saison, et alerter.py se trompe sur ce qui est déjà passé.
+      TZ: Europe/Paris
     steps:
       - uses: actions/checkout@v4
 
