@@ -50,7 +50,17 @@
   .barre h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; margin: 0; }
   /* Pixel art : pas de lissage, les carrés doivent rester des carrés. */
   .lapin { display: block; height: 54px; width: auto; image-rendering: pixelated; }
-  .maj { color: var(--galet); font-size: 0.82rem; padding-bottom: 0.2rem; }
+  .coin { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; }
+  .maj { color: var(--galet); font-size: 0.82rem; }
+
+  /* Raccourcis vers la bouée, la webcam et Windguru du spot affiché. */
+  .liens { display: flex; gap: 0.55rem; }
+  .liens a {
+    display: block; width: 24px; height: 24px; line-height: 0;
+    opacity: 0.75;
+  }
+  .liens a:hover, .liens a:focus-visible { opacity: 1; }
+  .liens svg { width: 100%; height: 100%; display: block; }
 
   /* ---- sélecteur de spot : pavillon ---- */
   .spots {
@@ -167,100 +177,96 @@
 <body>
 
 <div class="barre">
-  <h1><svg class="lapin" viewBox="0 0 34 26" shape-rendering="crispEdges"
+  <h1><svg class="lapin" viewBox="0 0 34 25" shape-rendering="crispEdges"
          role="img" aria-label="Côte d'Opale, conditions de surf">
-      <rect x="15" y="1" width="2" height="1" fill="#123239"/>
-      <rect x="14" y="2" width="1" height="1" fill="#123239"/>
-      <rect x="15" y="2" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="17" y="2" width="1" height="1" fill="#123239"/>
-      <rect x="13" y="3" width="1" height="1" fill="#123239"/>
-      <rect x="14" y="3" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="16" y="3" width="1" height="1" fill="#C0888A"/>
-      <rect x="17" y="3" width="1" height="1" fill="#123239"/>
-      <rect x="13" y="4" width="1" height="1" fill="#123239"/>
-      <rect x="14" y="4" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="16" y="4" width="1" height="1" fill="#C0888A"/>
-      <rect x="17" y="4" width="1" height="1" fill="#123239"/>
-      <rect x="12" y="5" width="1" height="1" fill="#123239"/>
-      <rect x="13" y="5" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="15" y="5" width="1" height="1" fill="#C0888A"/>
-      <rect x="16" y="5" width="1" height="1" fill="#123239"/>
-      <rect x="12" y="6" width="1" height="1" fill="#123239"/>
-      <rect x="13" y="6" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="15" y="6" width="1" height="1" fill="#C0888A"/>
-      <rect x="16" y="6" width="1" height="1" fill="#123239"/>
-      <rect x="11" y="7" width="2" height="1" fill="#123239"/>
-      <rect x="13" y="7" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="15" y="7" width="1" height="1" fill="#123239"/>
-      <rect x="7" y="8" width="5" height="1" fill="#123239"/>
-      <rect x="12" y="8" width="3" height="1" fill="#F4F7F6"/>
-      <rect x="15" y="8" width="4" height="1" fill="#123239"/>
-      <rect x="6" y="9" width="1" height="1" fill="#123239"/>
-      <rect x="7" y="9" width="12" height="1" fill="#F4F7F6"/>
-      <rect x="19" y="9" width="2" height="1" fill="#123239"/>
-      <rect x="5" y="10" width="1" height="1" fill="#123239"/>
-      <rect x="6" y="10" width="16" height="1" fill="#F4F7F6"/>
-      <rect x="22" y="10" width="1" height="1" fill="#123239"/>
-      <rect x="1" y="11" width="2" height="1" fill="#123239"/>
-      <rect x="5" y="11" width="1" height="1" fill="#123239"/>
-      <rect x="6" y="11" width="12" height="1" fill="#F4F7F6"/>
-      <rect x="18" y="11" width="3" height="1" fill="#123239"/>
-      <rect x="21" y="11" width="4" height="1" fill="#F4F7F6"/>
-      <rect x="25" y="11" width="1" height="1" fill="#123239"/>
-      <rect x="0" y="12" width="1" height="1" fill="#123239"/>
-      <rect x="1" y="12" width="3" height="1" fill="#F4F7F6"/>
-      <rect x="4" y="12" width="2" height="1" fill="#123239"/>
-      <rect x="6" y="12" width="12" height="1" fill="#F4F7F6"/>
-      <rect x="18" y="12" width="3" height="1" fill="#123239"/>
-      <rect x="21" y="12" width="4" height="1" fill="#F4F7F6"/>
-      <rect x="25" y="12" width="1" height="1" fill="#C0888A"/>
-      <rect x="26" y="12" width="1" height="1" fill="#123239"/>
-      <rect x="0" y="13" width="1" height="1" fill="#123239"/>
-      <rect x="1" y="13" width="24" height="1" fill="#F4F7F6"/>
-      <rect x="25" y="13" width="3" height="1" fill="#C0888A"/>
-      <rect x="28" y="13" width="1" height="1" fill="#123239"/>
-      <rect x="0" y="14" width="1" height="1" fill="#123239"/>
-      <rect x="1" y="14" width="24" height="1" fill="#F4F7F6"/>
-      <rect x="25" y="14" width="3" height="1" fill="#C0888A"/>
-      <rect x="28" y="14" width="1" height="1" fill="#123239"/>
-      <rect x="0" y="15" width="1" height="1" fill="#123239"/>
-      <rect x="1" y="15" width="4" height="1" fill="#F4F7F6"/>
-      <rect x="5" y="15" width="2" height="1" fill="#123239"/>
-      <rect x="7" y="15" width="18" height="1" fill="#F4F7F6"/>
-      <rect x="25" y="15" width="2" height="1" fill="#C0888A"/>
-      <rect x="27" y="15" width="1" height="1" fill="#123239"/>
-      <rect x="1" y="16" width="2" height="1" fill="#123239"/>
-      <rect x="6" y="16" width="1" height="1" fill="#123239"/>
-      <rect x="7" y="16" width="18" height="1" fill="#F4F7F6"/>
-      <rect x="25" y="16" width="2" height="1" fill="#123239"/>
-      <rect x="7" y="17" width="2" height="1" fill="#123239"/>
-      <rect x="9" y="17" width="6" height="1" fill="#F4F7F6"/>
-      <rect x="15" y="17" width="2" height="1" fill="#123239"/>
-      <rect x="17" y="17" width="8" height="1" fill="#F4F7F6"/>
-      <rect x="25" y="17" width="1" height="1" fill="#123239"/>
-      <rect x="9" y="18" width="6" height="1" fill="#123239"/>
-      <rect x="17" y="18" width="8" height="1" fill="#123239"/>
-      <rect x="1" y="19" width="27" height="1" fill="#8A5518"/>
-      <rect x="0" y="20" width="1" height="1" fill="#8A5518"/>
-      <rect x="1" y="20" width="27" height="1" fill="#C0762A"/>
-      <rect x="28" y="20" width="1" height="1" fill="#8A5518"/>
-      <rect x="1" y="21" width="27" height="1" fill="#8A5518"/>
-      <rect x="3" y="22" width="3" height="1" fill="#F4F7F6"/>
-      <rect x="11" y="22" width="4" height="1" fill="#F4F7F6"/>
-      <rect x="21" y="22" width="3" height="1" fill="#F4F7F6"/>
-      <rect x="1" y="23" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="3" y="23" width="3" height="1" fill="#5E93A0"/>
-      <rect x="6" y="23" width="4" height="1" fill="#F4F7F6"/>
-      <rect x="10" y="23" width="5" height="1" fill="#5E93A0"/>
-      <rect x="15" y="23" width="5" height="1" fill="#F4F7F6"/>
-      <rect x="20" y="23" width="5" height="1" fill="#5E93A0"/>
-      <rect x="25" y="23" width="2" height="1" fill="#F4F7F6"/>
-      <rect x="0" y="24" width="1" height="1" fill="#F4F7F6"/>
-      <rect x="1" y="24" width="27" height="1" fill="#5E93A0"/>
-      <rect x="28" y="24" width="1" height="1" fill="#F4F7F6"/>
-      <rect x="0" y="25" width="32" height="1" fill="#5E93A0"/>
+      <rect x="13" y="0" width="2" height="1" fill="#123239"/>
+      <rect x="12" y="1" width="1" height="1" fill="#123239"/>
+      <rect x="13" y="1" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="15" y="1" width="1" height="1" fill="#123239"/>
+      <rect x="11" y="2" width="1" height="1" fill="#123239"/>
+      <rect x="12" y="2" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="14" y="2" width="1" height="1" fill="#C0888A"/>
+      <rect x="15" y="2" width="1" height="1" fill="#123239"/>
+      <rect x="11" y="3" width="1" height="1" fill="#123239"/>
+      <rect x="12" y="3" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="14" y="3" width="1" height="1" fill="#C0888A"/>
+      <rect x="15" y="3" width="1" height="1" fill="#123239"/>
+      <rect x="11" y="4" width="1" height="1" fill="#123239"/>
+      <rect x="12" y="4" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="14" y="4" width="1" height="1" fill="#C0888A"/>
+      <rect x="15" y="4" width="1" height="1" fill="#123239"/>
+      <rect x="10" y="5" width="1" height="1" fill="#123239"/>
+      <rect x="11" y="5" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="13" y="5" width="1" height="1" fill="#C0888A"/>
+      <rect x="14" y="5" width="1" height="1" fill="#123239"/>
+      <rect x="9" y="6" width="2" height="1" fill="#123239"/>
+      <rect x="11" y="6" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="13" y="6" width="1" height="1" fill="#123239"/>
+      <rect x="4" y="7" width="5" height="1" fill="#123239"/>
+      <rect x="9" y="7" width="3" height="1" fill="#F4F7F6"/>
+      <rect x="12" y="7" width="4" height="1" fill="#123239"/>
+      <rect x="3" y="8" width="1" height="1" fill="#123239"/>
+      <rect x="4" y="8" width="12" height="1" fill="#F4F7F6"/>
+      <rect x="16" y="8" width="2" height="1" fill="#123239"/>
+      <rect x="2" y="9" width="1" height="1" fill="#123239"/>
+      <rect x="3" y="9" width="15" height="1" fill="#F4F7F6"/>
+      <rect x="18" y="9" width="1" height="1" fill="#123239"/>
+      <rect x="1" y="10" width="2" height="1" fill="#123239"/>
+      <rect x="3" y="10" width="10" height="1" fill="#F4F7F6"/>
+      <rect x="13" y="10" width="3" height="1" fill="#123239"/>
+      <rect x="16" y="10" width="4" height="1" fill="#F4F7F6"/>
+      <rect x="20" y="10" width="1" height="1" fill="#123239"/>
+      <rect x="1" y="11" width="1" height="1" fill="#123239"/>
+      <rect x="2" y="11" width="11" height="1" fill="#F4F7F6"/>
+      <rect x="13" y="11" width="3" height="1" fill="#123239"/>
+      <rect x="16" y="11" width="4" height="1" fill="#F4F7F6"/>
+      <rect x="20" y="11" width="1" height="1" fill="#C0888A"/>
+      <rect x="21" y="11" width="1" height="1" fill="#123239"/>
+      <rect x="1" y="12" width="1" height="1" fill="#123239"/>
+      <rect x="2" y="12" width="16" height="1" fill="#F4F7F6"/>
+      <rect x="18" y="12" width="3" height="1" fill="#C0888A"/>
+      <rect x="21" y="12" width="1" height="1" fill="#123239"/>
+      <rect x="1" y="13" width="1" height="1" fill="#123239"/>
+      <rect x="2" y="13" width="17" height="1" fill="#F4F7F6"/>
+      <rect x="19" y="13" width="2" height="1" fill="#C0888A"/>
+      <rect x="21" y="13" width="1" height="1" fill="#123239"/>
+      <rect x="1" y="14" width="2" height="1" fill="#123239"/>
+      <rect x="3" y="14" width="16" height="1" fill="#F4F7F6"/>
+      <rect x="19" y="14" width="2" height="1" fill="#123239"/>
+      <rect x="2" y="15" width="2" height="1" fill="#123239"/>
+      <rect x="4" y="15" width="5" height="1" fill="#F4F7F6"/>
+      <rect x="9" y="15" width="2" height="1" fill="#123239"/>
+      <rect x="11" y="15" width="7" height="1" fill="#F4F7F6"/>
+      <rect x="18" y="15" width="1" height="1" fill="#123239"/>
+      <rect x="3" y="16" width="6" height="1" fill="#123239"/>
+      <rect x="11" y="16" width="2" height="1" fill="#123239"/>
+      <rect x="13" y="16" width="4" height="1" fill="#F4F7F6"/>
+      <rect x="17" y="16" width="1" height="1" fill="#123239"/>
+      <rect x="11" y="17" width="7" height="1" fill="#123239"/>
+      <rect x="1" y="18" width="25" height="1" fill="#8A5518"/>
+      <rect x="0" y="19" width="1" height="1" fill="#8A5518"/>
+      <rect x="1" y="19" width="26" height="1" fill="#C0762A"/>
+      <rect x="27" y="19" width="1" height="1" fill="#8A5518"/>
+      <rect x="1" y="20" width="26" height="1" fill="#8A5518"/>
+      <rect x="3" y="21" width="3" height="1" fill="#F4F7F6"/>
+      <rect x="11" y="21" width="4" height="1" fill="#F4F7F6"/>
+      <rect x="21" y="21" width="3" height="1" fill="#F4F7F6"/>
+      <rect x="1" y="22" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="3" y="22" width="3" height="1" fill="#5E93A0"/>
+      <rect x="6" y="22" width="4" height="1" fill="#F4F7F6"/>
+      <rect x="10" y="22" width="5" height="1" fill="#5E93A0"/>
+      <rect x="15" y="22" width="5" height="1" fill="#F4F7F6"/>
+      <rect x="20" y="22" width="5" height="1" fill="#5E93A0"/>
+      <rect x="25" y="22" width="2" height="1" fill="#F4F7F6"/>
+      <rect x="0" y="23" width="1" height="1" fill="#F4F7F6"/>
+      <rect x="1" y="23" width="27" height="1" fill="#5E93A0"/>
+      <rect x="28" y="23" width="1" height="1" fill="#F4F7F6"/>
+      <rect x="0" y="24" width="32" height="1" fill="#5E93A0"/>
     </svg></h1>
-  <span class="maj" id="maj"></span>
+  <div class="coin">
+    <div class="liens" id="liens"></div>
+    <span class="maj" id="maj"></span>
+  </div>
 </div>
 
 <main id="contenu"><p class="vide">Chargement des conditions…</p></main>
@@ -499,6 +505,35 @@ function alerteOrage(r) {
   return d;
 }
 
+const ICONES = {
+  bouee: "<svg viewBox=\"0 0 16 13\" shape-rendering=\"crispEdges\" aria-hidden=\"true\"><rect x=\"7\" y=\"0\" width=\"2\" height=\"1\" fill=\"#123239\"/><rect x=\"6\" y=\"1\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"7\" y=\"1\" width=\"2\" height=\"1\" fill=\"#C0762A\"/><rect x=\"9\" y=\"1\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"6\" y=\"2\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"7\" y=\"2\" width=\"2\" height=\"1\" fill=\"#C0762A\"/><rect x=\"9\" y=\"2\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"7\" y=\"3\" width=\"2\" height=\"1\" fill=\"#123239\"/><rect x=\"5\" y=\"4\" width=\"6\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"5\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"5\" y=\"5\" width=\"6\" height=\"1\" fill=\"#C0762A\"/><rect x=\"11\" y=\"5\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"6\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"5\" y=\"6\" width=\"6\" height=\"1\" fill=\"#F4F7F6\"/><rect x=\"11\" y=\"6\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"7\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"5\" y=\"7\" width=\"6\" height=\"1\" fill=\"#C0762A\"/><rect x=\"11\" y=\"7\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"8\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"8\" width=\"8\" height=\"1\" fill=\"#F4F7F6\"/><rect x=\"12\" y=\"8\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"9\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"9\" width=\"8\" height=\"1\" fill=\"#C0762A\"/><rect x=\"12\" y=\"9\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"10\" width=\"10\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"11\" width=\"3\" height=\"1\" fill=\"#5E93A0\"/><rect x=\"7\" y=\"11\" width=\"3\" height=\"1\" fill=\"#5E93A0\"/><rect x=\"12\" y=\"11\" width=\"3\" height=\"1\" fill=\"#5E93A0\"/><rect x=\"1\" y=\"12\" width=\"15\" height=\"1\" fill=\"#5E93A0\"/></svg>",
+  webcam: "<svg viewBox=\"0 0 16 13\" shape-rendering=\"crispEdges\" aria-hidden=\"true\"><rect x=\"2\" y=\"1\" width=\"10\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"2\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"2\" width=\"8\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"11\" y=\"2\" width=\"2\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"3\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"3\" width=\"2\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"5\" y=\"3\" width=\"3\" height=\"1\" fill=\"#123239\"/><rect x=\"8\" y=\"3\" width=\"4\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"12\" y=\"3\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"4\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"4\" width=\"2\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"5\" y=\"4\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"6\" y=\"4\" width=\"2\" height=\"1\" fill=\"#B4CBD1\"/><rect x=\"8\" y=\"4\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"9\" y=\"4\" width=\"4\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"13\" y=\"4\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"5\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"5\" width=\"2\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"5\" y=\"5\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"6\" y=\"5\" width=\"2\" height=\"1\" fill=\"#B4CBD1\"/><rect x=\"8\" y=\"5\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"9\" y=\"5\" width=\"4\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"13\" y=\"5\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"6\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"6\" width=\"2\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"5\" y=\"6\" width=\"3\" height=\"1\" fill=\"#123239\"/><rect x=\"8\" y=\"6\" width=\"4\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"12\" y=\"6\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"7\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"7\" width=\"8\" height=\"1\" fill=\"#3A5A61\"/><rect x=\"11\" y=\"7\" width=\"1\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"8\" width=\"10\" height=\"1\" fill=\"#123239\"/><rect x=\"6\" y=\"9\" width=\"2\" height=\"1\" fill=\"#123239\"/><rect x=\"5\" y=\"10\" width=\"4\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"11\" width=\"6\" height=\"1\" fill=\"#123239\"/></svg>",
+  previsions: "<svg viewBox=\"0 0 16 13\" shape-rendering=\"crispEdges\" aria-hidden=\"true\"><rect x=\"3\" y=\"1\" width=\"9\" height=\"1\" fill=\"#123239\"/><rect x=\"3\" y=\"2\" width=\"9\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"4\" width=\"12\" height=\"1\" fill=\"#123239\"/><rect x=\"2\" y=\"5\" width=\"13\" height=\"1\" fill=\"#123239\"/><rect x=\"13\" y=\"6\" width=\"2\" height=\"1\" fill=\"#123239\"/><rect x=\"12\" y=\"7\" width=\"3\" height=\"1\" fill=\"#123239\"/><rect x=\"10\" y=\"8\" width=\"3\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"10\" width=\"7\" height=\"1\" fill=\"#123239\"/><rect x=\"4\" y=\"11\" width=\"7\" height=\"1\" fill=\"#123239\"/></svg>",
+};
+
+const LIBELLES = {
+  bouee: "Bouée — mesures en temps réel",
+  webcam: "Webcam du spot",
+  previsions: "Prévisions Windguru",
+};
+
+function majLiens(spot) {
+  const zone = document.getElementById("liens");
+  zone.innerHTML = "";
+  const liens = (spot && spot.liens) || {};
+  ["bouee", "webcam", "previsions"].forEach(cle => {
+    if (!liens[cle]) return;
+    const a = document.createElement("a");
+    a.href = liens[cle];
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.title = `${LIBELLES[cle]} — ${spot.nom}`;
+    a.setAttribute("aria-label", a.title);
+    a.innerHTML = ICONES[cle];
+    zone.append(a);
+  });
+}
+
 let DONNEES = null;
 let SPOT_ACTIF = 0;
 
@@ -542,6 +577,7 @@ function afficher() {
   contenu.append(barre);
 
   const spot = DONNEES.spots[SPOT_ACTIF];
+  majLiens(spot);
   if (!spot || !spot.creneaux.length) {
     contenu.insertAdjacentHTML("beforeend",
       `<p class="vide">Aucun créneau de jour pour ce spot.</p>`);

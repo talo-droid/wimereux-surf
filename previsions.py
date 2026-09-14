@@ -88,6 +88,13 @@ SPOTS = {
             180: 85, 202: 180, 225: 400, 247: 500, 270: 90, 292: 80,
             315: 90, 337: 180,
         },
+        # Liens affichés en haut de la page, pour vérifier la prévision
+        # contre la mesure et contre l'œil.
+        "liens": {
+            "bouee": "https://wavenet.cefas.co.uk/details/HASTINGSWN/INT",
+            "webcam": "https://www.youtube.com/watch?v=vBqzSfNFq-k",
+            "previsions": "https://www.windguru.cz/48354",
+        },
     },
     "calais": {
         "nom": "Calais",
@@ -112,6 +119,13 @@ SPOTS = {
             0: 300, 22: 250, 45: 200, 67: 120, 90: 80, 112: 10, 135: 3,
             157: 3, 180: 3, 202: 3, 225: 5, 247: 25, 270: 35, 292: 90,
             315: 150, 337: 250,
+        },
+        "liens": {
+            "bouee": "https://www.ndbc.noaa.gov/station_page.php"
+                     "?station=62304&uom=M&tz=STN",
+            "webcam": "https://www.vision-environnement.com/it/webcam/francia/"
+                      "hauts-de-france/1241-sangatte/",
+            "previsions": "https://www.windguru.cz/48349",
         },
     },
 }
@@ -962,6 +976,7 @@ def exporter_json(resultats: dict, chemin: Path) -> None:
                 "bouee": SPOTS[cle]["bouee"],
                 "site_maree": SPOTS[cle]["site_maree"],
                 "pic_maree_h": SPOTS[cle]["pic_maree_h"],
+                "liens": SPOTS[cle].get("liens", {}),
                 "creneaux": [{**asdict(c), "instant": c.instant.isoformat()}
                              for c in r["creneaux"]],
                 "marees": [{**e, "instant": e["instant"].isoformat()}
