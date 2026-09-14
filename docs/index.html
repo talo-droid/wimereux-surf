@@ -168,6 +168,49 @@
     vertical-align: baseline;
   }
 
+  /* ---- noter une session ---- */
+  .journal { border-top: 1px solid var(--trait); margin-top: 0.4rem; }
+  .journal > summary {
+    padding: 0.9rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.95rem;
+    list-style: none;
+  }
+  .journal > summary::-webkit-details-marker { display: none; }
+  .journal > summary::before { content: "+ "; color: var(--galet); }
+  .journal[open] > summary::before { content: "– "; }
+  .journal .corps { padding: 0 1rem 1.1rem; }
+  .journal p { margin: 0 0 0.8rem; color: var(--galet); font-size: 0.85rem; }
+  .champs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.7rem; }
+  .champs label { font-size: 0.78rem; color: var(--galet); display: block; }
+  .journal select, .journal input {
+    font: inherit; font-size: 0.9rem; padding: 0.3rem 0.4rem;
+    background: var(--craie); color: var(--ardoise);
+    border: 1px solid var(--trait); border-radius: 0;
+  }
+  .journal input[type="text"] { width: 100%; }
+  .notes-choix { display: flex; gap: 0.3rem; }
+  .notes-choix button {
+    width: 2.1rem; height: 2.1rem; font: inherit; font-weight: 600;
+    background: var(--craie); color: var(--galet);
+    border: 1px solid var(--trait); cursor: pointer;
+  }
+  .notes-choix button[aria-pressed="true"] { color: #fff; border-color: transparent; }
+  .actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+             margin-top: 0.9rem; }
+  .actions button, .actions a {
+    font: inherit; font-size: 0.9rem; padding: 0.4rem 0.7rem; cursor: pointer;
+    background: var(--ardoise); color: var(--craie); border: none;
+    text-decoration: none; display: inline-block;
+  }
+  .actions a { background: transparent; color: var(--ardoise);
+               border: 1px solid var(--ardoise); }
+  .actions button[disabled] { opacity: 0.4; cursor: default; }
+  .ligne-csv {
+    font-family: ui-monospace, monospace; font-size: 0.8rem;
+    background: var(--craie); padding: 0.45rem 0.55rem; margin-top: 0.7rem;
+    word-break: break-all; color: var(--galet);
+  }
+  .retour { font-size: 0.82rem; color: var(--n5); }
+
   footer { padding: 1.2rem 1rem 0; color: var(--galet); font-size: 0.76rem; line-height: 1.5; }
   footer a { color: var(--galet); }
   .vide, .erreur { padding: 2.5rem 1rem; color: var(--galet); }
@@ -270,6 +313,35 @@
 </div>
 
 <main id="contenu"><p class="vide">Chargement des conditions…</p></main>
+
+<details class="journal" id="journal">
+  <summary>Noter une session</summary>
+  <div class="corps">
+    <p>Une ligne par sortie. C'est la seule donnée que le calcul ne peut pas
+      deviner, et celle qui permettra d'ajuster les seuils.</p>
+    <div class="champs">
+      <div><label for="j-jour">jour</label><select id="j-jour"></select></div>
+      <div><label for="j-heure">heure</label><select id="j-heure"></select></div>
+      <div><label for="j-spot">spot</label><select id="j-spot"></select></div>
+    </div>
+    <div class="champs">
+      <div style="flex:1">
+        <label>ta note</label>
+        <div class="notes-choix" id="j-note"></div>
+      </div>
+    </div>
+    <div>
+      <label for="j-com">commentaire</label>
+      <input type="text" id="j-com" placeholder="facultatif" maxlength="120">
+    </div>
+    <div class="ligne-csv" id="j-ligne"></div>
+    <div class="actions">
+      <button type="button" id="j-copier">Copier la ligne</button>
+      <a id="j-ouvrir" target="_blank" rel="noopener noreferrer">Ouvrir journal.csv</a>
+      <span class="retour" id="j-retour"></span>
+    </div>
+  </div>
+</details>
 
 <footer>
   Houle et vent : Open-Meteo (modèles EWAM et GWAM).
@@ -563,6 +635,11 @@ function carteSpot(spot, index) {
     if (index === SPOT_ACTIF) return;
     SPOT_ACTIF = index;
     afficher();
+    const champSpot = document.getElementById("j-spot");
+    if (champSpot && DONNEES.spots[index]) {
+      champSpot.value = DONNEES.spots[index].cle;
+      rafraichirLigne();
+    }
   });
   return b;
 }
@@ -628,12 +705,120 @@ function afficher() {
   });
 }
 
+
+/* ================= Journal de sessions =================
+   Le but est qu'une sortie se note en quatre touches depuis le parking.
+   La page ne peut pas écrire dans le dépôt, alors elle prépare la ligne
+   CSV, la copie, et ouvre journal.csv en édition sur GitHub. */
+
+let J_NOTE = 3;
+
+function depotGitHub() {
+  // Sur Pages, l'adresse est compte.github.io/depot/ : tout est déductible.
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  if (!m) return null;
+  const depot = location.pathname.split("/").filter(Boolean)[0];
+  if (!depot) return null;
+  return `https://github.com/${m[1]}/${depot}/edit/main/journal.csv`;
+}
+
+function ligneCsv() {
+  const jour = document.getElementById("j-jour").value;
+  const heure = document.getElementById("j-heure").value;
+  const spot = document.getElementById("j-spot").value;
+  let com = document.getElementById("j-com").value.trim().replace(/"/g, "'");
+  if (com.includes(",")) com = `"${com}"`;
+  return `${jour},${heure},${spot},${J_NOTE},${com}`;
+}
+
+function rafraichirLigne() {
+  document.getElementById("j-ligne").textContent = ligneCsv();
+}
+
+function initJournal() {
+  const jours = document.getElementById("j-jour");
+  const aujourdhui = new Date();
+  // Les sept derniers jours : on note une sortie passée, pas une prévision.
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(aujourdhui);
+    d.setDate(d.getDate() - i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const o = document.createElement("option");
+    o.value = iso;
+    o.textContent = i === 0 ? "aujourd'hui"
+      : i === 1 ? "hier"
+      : `${JOURS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MOIS[d.getMonth()]}`;
+    jours.append(o);
+  }
+
+  const heures = document.getElementById("j-heure");
+  for (let h = 5; h <= 22; h++) {
+    const o = document.createElement("option");
+    o.value = h;
+    o.textContent = `${String(h).padStart(2, "0")}h`;
+    if (h === Math.min(22, Math.max(5, aujourdhui.getHours()))) o.selected = true;
+    heures.append(o);
+  }
+
+  const spots = document.getElementById("j-spot");
+  (DONNEES.spots || []).forEach((sp, i) => {
+    const o = document.createElement("option");
+    o.value = sp.cle;
+    o.textContent = sp.nom;
+    if (i === SPOT_ACTIF) o.selected = true;
+    spots.append(o);
+  });
+
+  const choix = document.getElementById("j-note");
+  for (let n = 1; n <= 5; n++) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = n;
+    b.setAttribute("aria-pressed", String(n === J_NOTE));
+    b.style.background = n === J_NOTE ? couleur(n) : "";
+    b.addEventListener("click", () => {
+      J_NOTE = n;
+      [...choix.children].forEach((x, i) => {
+        const actif = i + 1 === n;
+        x.setAttribute("aria-pressed", String(actif));
+        x.style.background = actif ? couleur(i + 1) : "";
+      });
+      rafraichirLigne();
+    });
+    choix.append(b);
+  }
+
+  ["j-jour", "j-heure", "j-spot", "j-com"].forEach(id =>
+    document.getElementById(id).addEventListener("input", rafraichirLigne));
+
+  const lien = document.getElementById("j-ouvrir");
+  const url = depotGitHub();
+  if (url) {
+    lien.href = url;
+  } else {
+    lien.remove();
+  }
+
+  const retour = document.getElementById("j-retour");
+  document.getElementById("j-copier").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(ligneCsv());
+      retour.textContent = "Copié. Colle la ligne à la fin du fichier.";
+    } catch {
+      retour.textContent = "Copie impossible : sélectionne la ligne à la main.";
+    }
+  });
+
+  rafraichirLigne();
+}
+
 function rendre(data) {
   DONNEES = data;
   const maj = new Date(data.genere_le);
   document.getElementById("maj").textContent =
     `mis à jour ${String(maj.getHours()).padStart(2, "0")}h${String(maj.getMinutes()).padStart(2, "0")}`;
   afficher();
+  initJournal();
 }
 
 fetch("data.json?" + Date.now())

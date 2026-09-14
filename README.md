@@ -72,12 +72,59 @@ Réglages communs aux deux spots :
 | `CAPE_*`, `LI_*` | seuils de risque orageux |
 | `POIDS` | pondération des trois critères dans la note globale |
 
-## L'archive
+## Le journal
 
-Chaque exécution dépose une copie datée dans `archives/`. Au bout de quelques
-mois, tu pourras comparer ce que le modèle annonçait à J-3 pour un créneau donné
-avec ce qu'il annonçait à J-1, et savoir à partir de quel horizon il décroche
-à Wimereux. C'est l'information qu'aucun site généraliste ne te donnera.
+Tous les seuils de ce projet sont des hypothèses raisonnables, pas des mesures.
+Le journal est ce qui les rendra justes.
+
+### Remplir
+
+Après chaque sortie, ajoute **une ligne** à `journal.csv` :
+
+```
+date,heure,spot,note,commentaire
+2026-09-20,16,wimereux,4,belles séries sur la barre du milieu
+```
+
+- `date` au format AAAA-MM-JJ
+- `heure` sur 24 h, sans minutes — l'heure du créneau, pas celle de ta sortie
+  de l'eau
+- `spot` : `wimereux` ou `calais`
+- `note` : ce que TU as pensé de la session, de 1 à 5. C'est la seule donnée
+  que le modèle ne peut pas deviner, et la seule qui compte vraiment.
+- `commentaire` : libre, et facultatif. Mets une virgule dans du texte et il
+  faudra l'entourer de guillemets.
+
+Le plus simple : le bouton **Noter une session** en bas de la page. Tu choisis
+le jour, l'heure, le spot et la note, la ligne se construit toute seule, un
+bouton la copie et un autre ouvre `journal.csv` en édition sur GitHub. Il ne
+reste qu'à coller à la fin du fichier et valider. Trente secondes sur le
+parking, sans rien taper de travers.
+
+Le lien vers GitHub se déduit de l'adresse de la page, il n'y a rien à
+configurer. Il n'apparaît pas quand tu testes en local.
+
+Ne note que ce que tu as vécu. Une ligne honnête vaut mieux que dix reconstituées
+de mémoire, et une mauvaise session est aussi informative qu'une bonne.
+
+### Analyser
+
+```
+python3 analyser.py
+python3 analyser.py --spot calais
+```
+
+Le script rapproche `journal.csv` des copies datées déposées dans `archives/`
+par chaque exécution, et affiche trois choses : le détail session par session
+avec l'écart entre ta note et la note calculée ; le classement des critères
+selon leur lien avec ton ressenti ; et la dérive de la prévision selon qu'elle
+datait de la veille ou de trois jours avant.
+
+En dessous d'une douzaine de sessions les corrélations sont du bruit, et le
+script te le dit. À partir de vingt ou trente, elles commencent à dire quelque
+chose : quel critère porte l'information, lequel n'apporte rien, et à partir de
+quel horizon le modèle décroche chez toi. C'est ce qu'aucun site généraliste ne
+te donnera.
 
 ## Attribution
 
