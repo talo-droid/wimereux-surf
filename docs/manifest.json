@@ -2,7 +2,28 @@
   "name": "Côte d'Opale — conditions de surf",
   "short_name": "Surf Opale",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#DCE4E3",
-  "theme_color": "#123239"
+  "theme_color": "#123239",
+  "icons": [
+    {
+      "src": "icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icone-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }
