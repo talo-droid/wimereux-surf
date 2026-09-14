@@ -192,7 +192,9 @@ const JOURS = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"
 const MOIS  = ["janv.","févr.","mars","avril","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
 
 const el = (t, c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
-const couleur = n => `var(--n${Math.max(1, Math.min(5, Math.round(n)))})`;
+const couleur = n => Math.round(n) < 1
+  ? "var(--galet)"                       // note nulle : véto, pas une mauvaise note
+  : `var(--n${Math.min(5, Math.round(n))})`;
 
 function rose(deg) {
   const p = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
@@ -200,15 +202,28 @@ function rose(deg) {
 }
 
 // Étoile portant sa note, colorée de rouge (1) à vert (5).
+const ETOILE = "M12 1.6l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.4l-6.2 3.2 1.2-6.8-5-4.9 6.9-1z";
+
 function etoile(note, taille) {
-  const n = Math.max(1, Math.min(5, Math.round(note)));
+  const n = Math.min(5, Math.round(note));
+  // Une note nulle vient d'un véto (pas de houle, mauvaise direction, orage).
+  // Elle se dessine en creux, pour ne pas se confondre avec un simple 1.
+  const vide = n < 1;
   return `<svg class="badge" width="${taille}" height="${taille}" viewBox="0 0 24 24"
-       role="img" aria-label="note ${note} sur 5">
-    <path d="M12 1.6l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.4l-6.2 3.2 1.2-6.8-5-4.9 6.9-1z"
-          fill="${couleur(n)}"/>
+       role="img" aria-label="note ${vide ? 0 : n} sur 5">
+    <path d="${ETOILE}" fill="${vide ? "none" : couleur(n)}"
+          ${vide ? 'stroke="var(--trait)" stroke-width="1.6"' : ""}/>
     <text x="12" y="14.6" text-anchor="middle" font-size="9.5" font-weight="700"
-          fill="#fff" font-family="Barlow Semi Condensed, sans-serif">${n}</text>
+          fill="${vide ? "var(--galet)" : "#fff"}"
+          font-family="Barlow Semi Condensed, sans-serif">${vide ? 0 : n}</text>
   </svg>`;
+}
+
+// Pourquoi une note est nulle : la réponse est dans les vétos.
+function motifZero(c) {
+  if (c.risque_orage === "élevé") return "orage";
+  if (c.note_houle === 0) return "houle insuffisante ou hors de la fenêtre de direction";
+  return "";
 }
 
 // La flèche pointe dans le sens où ça va, comme sur Windguru :
@@ -256,10 +271,12 @@ function tableauJournee(creneaux, meilleurGlobal) {
         case "heures":
           cel.textContent = String(d.getHours()).padStart(2, "0");
           break;
-        case "note":
+        case "note": {
           cel.innerHTML = etoile(c.note_totale, 26);
-          cel.title = `${c.note_totale.toFixed(1)} / 5`;
+          const motif = c.note_totale === 0 ? motifZero(c) : "";
+          cel.title = motif ? `0 / 5 — ${motif}` : `${c.note_totale.toFixed(1)} / 5`;
           break;
+        }
         case "hauteur":
           cel.textContent = c.hauteur_m.toFixed(2);
           if (c.note_totale === noteMax) cel.classList.add("pointe");
@@ -366,7 +383,9 @@ function apercuJournee(r) {
   p.innerHTML = `${marees || "—"} &nbsp;|&nbsp; jour ${r.lever}–${r.coucher}
     &nbsp;|&nbsp; marnage ${r.marnage_m} m · RTR <b>${r.rtr}</b>
     &nbsp;|&nbsp; jusqu'à <b>${Math.round(r.energie_max_kwm)} kJ</b>
-    &nbsp;|&nbsp; meilleur <b>${r.meilleure_heure}</b>`;
+    &nbsp;|&nbsp; ${r.meilleure_note > 0
+      ? `meilleur <b>${r.meilleure_heure}</b>`
+      : `<b>aucun créneau</b>`}`;
   p.title = r.rtr > 8
     ? "RTR élevé : la marée domine les vagues, la zone de surf se définit mal"
     : "RTR modéré : la plage reste dominée par les vagues";
@@ -403,7 +422,7 @@ function carteSpot(spot, index) {
     const d = new Date(meilleur.instant);
     const n = meilleur.note_totale;
     b.innerHTML = `
-      <span class="mat"><i style="height:${Math.max(3, n / 5 * 100)}%;background:${couleur(n)}"></i></span>
+      <span class="mat"><i style="height:${n > 0 ? n / 5 * 100 : 0}%;background:${couleur(n)}"></i></span>
       <span class="corps">
         <span class="nom">${spot.nom}</span>
         <span class="val" style="color:${couleur(n)}">${n.toFixed(1)}</span>
@@ -446,7 +465,9 @@ function afficher() {
   const quandMaree = pic > 0 ? `${pic} h après la pleine mer`
     : pic < 0 ? `${Math.abs(pic)} h avant la pleine mer` : "à la pleine mer";
   const detail = el("p", "phare");
-  detail.innerHTML = `Meilleur créneau : <b>${best.hauteur_m.toFixed(2)} m à
+  detail.innerHTML = (best.note_totale > 0
+    ? `Meilleur créneau : `
+    : `Rien de surfable sur la période. Au mieux : `) + `<b>${best.hauteur_m.toFixed(2)} m à
     ${best.tpeak_s.toFixed(1)} s</b> · ${Math.round(best.energie_kwm)} kJ ·
     vent ${Math.round(best.vitesse_kt)} nds ${rose(best.dir_vent)}${
       best.risque_orage && best.risque_orage !== "nul"
