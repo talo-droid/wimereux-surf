@@ -133,6 +133,26 @@ partir de composantes harmoniques Ifremer / PREVIMER, elles-mêmes sous licence
 CC BY. Houle, vent, courant et indices convectifs : Open-Meteo (modèles DWD
 EWAM et GWAM pour la houle).
 
+## Modèles de vent
+
+Le vent vient de deux modèles à haute résolution, moyennés quand ils sont
+disponibles tous les deux :
+
+- **AROME HD** (Météo-France), environ 1,5 km, jusqu'à ~42 h ;
+- **UKV** (Met Office), 2 km, jusqu'à ~48 h, réputé sur la Manche.
+
+Au-delà de deux jours, ARPEGE prend le relais, puis le choix automatique
+d'Open-Meteo. Le modèle utilisé s'affiche dans l'infobulle de chaque case de
+vent, et un cadre pointillé signale un désaccord d'au moins 5 nœuds.
+
+Le vent est calculé un peu au large (`point_vent` dans `SPOTS`) : posé sur le
+trait de côte, une maille de 1,5 à 2 km mélange terre et mer, et la rugosité
+du sol freine artificiellement le vent.
+
+Pour privilégier un seul modèle, ajoute la variable de dépôt `MODE_VENT` avec
+`arome` ou `ukv` (par défaut : `moyenne`), et ajoute-la à la section `env`
+de l'étape « Calculer les notes » du workflow.
+
 ## Recevoir une notification
 
 Le workflow prévient quand un créneau dépasse un seuil, par le service

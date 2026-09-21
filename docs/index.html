@@ -139,6 +139,8 @@
     display: block; border-radius: 5px; padding: 3px 4px;
     color: var(--ardoise); line-height: 1.25;
   }
+  /* AROME et UKV en désaccord : prévision de vent à prendre avec réserve. */
+  .bloc.incertain { outline: 1.5px dashed var(--n2); outline-offset: -2px; }
   .pointe { font-weight: 600; }
   tr.separe td, tr.separe th { border-top: 1px solid var(--trait); }
   .fleche { display: inline-block; font-size: 0.95rem; line-height: 1; }
@@ -363,6 +365,9 @@
   pour une plage dissipative. RTR : marnage rapporté à la hauteur de houle.
   Translation : vitesse de déplacement du bord de l'eau sur l'estran.
   Le courant est indicatif et n'entre pas dans la note.
+  <br>Vent : moyenne d'AROME HD (Météo-France, 1,5 km) et d'UKV (Met Office,
+  2 km) sur les deux premiers jours, puis ARPEGE. Un cadre pointillé signale
+  un écart d'au moins 5 nœuds entre les deux modèles fins.
   <br>Orage : combiné du code météo, de la CAPE et de l'indice de soulèvement,
   étendu aux deux heures voisines. Un risque élevé met la note à zéro.
   Sur l'eau, la règle est de sortir dès le premier coup de tonnerre et
@@ -536,14 +541,19 @@ function tableauJournee(creneaux, meilleurGlobal) {
           cel.title = `${c.courant_effet}${c.courant_kt ? ` · ${c.courant_kt.toFixed(1)} nds` : ""}`;
           break;
         }
-        case "vent":
+        case "vent": {
           cel.classList.add("fond", "pointe");
+          const incertain = c.ecart_vent_kt != null && c.ecart_vent_kt >= 5;
           cel.innerHTML = bloc(Math.round(c.vitesse_kt),
                                teinte(c.vitesse_kt, ECHELLE_VENT));
+          if (incertain) cel.firstChild.classList.add("incertain");
           // La qualité du secteur passe dans l'infobulle : le fond ne dit
           // plus que la force, comme sur Windguru.
-          cel.title = `${Math.round(c.vitesse_kt)} nds ${rose(c.dir_vent)} · ${c.cat_vent}`;
+          cel.title = `${Math.round(c.vitesse_kt)} nds ${rose(c.dir_vent)} · ${c.cat_vent}`
+            + (c.modele_vent ? ` · ${c.modele_vent}` : "")
+            + (c.ecart_vent_kt != null ? ` · écart entre modèles ${c.ecart_vent_kt} nds` : "");
           break;
+        }
         case "rafales":
           cel.classList.add("fond");
           cel.innerHTML = bloc(Math.round(c.rafales_kt),
@@ -716,7 +726,8 @@ function afficher() {
     vent ${Math.round(best.vitesse_kt)} nds ${rose(best.dir_vent)}${
       best.risque_orage && best.risque_orage !== "nul"
         ? ` · <span style="color:var(--n1)">orage ${best.risque_orage}</span>` : ""}
-    <br>Houle attendue de ${spot.bouee}, optimum ${quandMaree}.`;
+    <br>Houle attendue de ${spot.bouee}, optimum ${quandMaree}.
+    Vent : ${best.modele_vent || "—"}.`;
   contenu.append(detail);
 
   const resumes = {};

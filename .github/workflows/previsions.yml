@@ -33,6 +33,7 @@ jobs:
           API_MAREE_KEY: ${{ secrets.API_MAREE_KEY }}
           SITE_MAREE_WIMEREUX: ${{ vars.SITE_MAREE_WIMEREUX || 'boulogne-sur-mer' }}
           SITE_MAREE_CALAIS: ${{ vars.SITE_MAREE_CALAIS || 'calais' }}
+          MODE_VENT: ${{ vars.MODE_VENT || 'moyenne' }}
         run: python previsions.py --heures 96 --json docs/data.json
 
       - name: Préparer l'alerte

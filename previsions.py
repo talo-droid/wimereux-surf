@@ -86,6 +86,10 @@ SPOTS = {
         "bouee": "Hastings",
         "point_houle": (50.80, 0.65),
         "point_spot": (50.7683, 1.6086),
+        # Vent pris un peu au large : une maille de 1,5 à 2 km posée sur le
+        # trait de côte mélange terre et mer, et la rugosité du sol freine le
+        # vent calculé à 10 m. À vérifier : le point doit tomber en mer.
+        "point_vent": (50.7700, 1.5800),
         "point_courant": (50.79, 1.55),
         "site_maree": os.environ.get("SITE_MAREE_WIMEREUX", "boulogne-sur-mer"),
         # Fenêtre de direction de houle : hors de là, la note tombe à zéro.
@@ -118,6 +122,7 @@ SPOTS = {
         "bouee": "Sandettie",
         "point_houle": (51.15, 1.79),
         "point_spot": (50.9700, 1.8500),
+        "point_vent": (50.9850, 1.8400),
         "point_courant": (51.00, 1.83),
         "site_maree": os.environ.get("SITE_MAREE_CALAIS", "calais"),
         # La plage regarde le nord : fenêtre à cheval sur 0°, du nord-ouest
@@ -182,6 +187,26 @@ PENALITE_RTR_MAX = 0.25
 
 # --- Vent -----------------------------------------------------------------
 SEUIL_RAFALES_KT = 10.0
+
+# Modèles de vent à haute résolution, du préféré au moins préféré. Les deux
+# ne couvrent qu'environ deux jours ; au-delà, on relaie sur les suivants.
+#   AROME HD : Météo-France, ~1,5 km, jusqu'à ~42 h
+#   UKV      : Met Office, ~2 km, jusqu'à ~48 h, très bon sur la Manche
+MODELES_VENT = ["meteofrance_arome_france_hd", "ukmo_uk_deterministic_2km"]
+MODELES_VENT_RELAIS = ["meteofrance_arpege_europe", "best_match"]
+NOMS_MODELES = {
+    "meteofrance_arome_france_hd": "AROME HD",
+    "ukmo_uk_deterministic_2km": "UKV",
+    "meteofrance_arpege_europe": "ARPEGE",
+    "best_match": "Open-Meteo",
+}
+# "moyenne" : moyenne d'AROME HD et d'UKV quand les deux existent — deux
+#             modèles fins indépendants font en général mieux qu'un seul ;
+# "arome"   : AROME HD d'abord, UKV en secours ;
+# "ukv"     : l'inverse.
+MODE_VENT = os.environ.get("MODE_VENT", "moyenne")
+# Écart entre AROME et UKV au-delà duquel on signale une prévision incertaine.
+ECART_VENT_ALERTE_KT = 5.0
 
 # --- Courant (bonus, hors note) ------------------------------------------
 COURANT_SEUIL_KT = 0.4
@@ -637,30 +662,110 @@ def recuperer_courant(sp, heures: int) -> dict[datetime, dict]:
         return {}
 
 
+def _moyenne_vent(mesures):
+    """
+    Combine plusieurs prévisions (vitesse, direction, rafales).
+    La vitesse et les rafales sont moyennées ; la direction l'est
+    vectoriellement, sinon 350° et 10° donneraient 180°.
+    """
+    n = len(mesures)
+    vit = sum(m[0] for m in mesures) / n
+    raf = sum(m[2] for m in mesures) / n
+    x = sum(math.cos(math.radians(m[1])) for m in mesures)
+    y = sum(math.sin(math.radians(m[1])) for m in mesures)
+    direction = math.degrees(math.atan2(y, x)) % 360
+    return vit, direction, raf
+
+
 def recuperer_vent(sp, heures: int) -> dict[datetime, dict]:
-    donnees = _get_json(
-        "https://api.open-meteo.com/v1/forecast",
-        {"latitude": sp["point_spot"][0], "longitude": sp["point_spot"][1],
-         "hourly": ("wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
-                    "weather_code,cape,lifted_index,precipitation_probability"),
-         "wind_speed_unit": "kn", "timezone": FUSEAU,
-         "forecast_hours": min(heures, 168)},
-    )
+    """
+    Vent horaire issu des modèles fins (AROME HD, UKV), relayé au-delà de
+    leur portée par ARPEGE puis par le choix automatique d'Open-Meteo.
+    Les indices d'orage viennent du choix automatique, qui les fournit tous.
+    """
+    lat, lon = sp.get("point_vent", sp["point_spot"])
+    tous = MODELES_VENT + MODELES_VENT_RELAIS
+    variables = ("wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
+                 "weather_code,cape,lifted_index,precipitation_probability")
+    try:
+        donnees = _get_json(
+            "https://api.open-meteo.com/v1/forecast",
+            {"latitude": lat, "longitude": lon, "hourly": variables,
+             "models": ",".join(tous), "wind_speed_unit": "kn",
+             "timezone": FUSEAU, "forecast_hours": min(heures, 168)})
+        multi = True
+    except Exception:
+        # Un modèle indisponible ne doit pas priver la page de vent.
+        donnees = _get_json(
+            "https://api.open-meteo.com/v1/forecast",
+            {"latitude": lat, "longitude": lon, "hourly": variables,
+             "wind_speed_unit": "kn", "timezone": FUSEAU,
+             "forecast_hours": min(heures, 168)})
+        multi = False
     h = donnees["hourly"]
 
-    def col(nom, i):
-        serie = h.get(nom)
+    def col(nom, modele, i):
+        cle = f"{nom}_{modele}" if multi and modele else nom
+        serie = h.get(cle)
         return serie[i] if serie and i < len(serie) else None
 
-    return {datetime.fromisoformat(t): {
-        "vitesse_kt": h["wind_speed_10m"][i],
-        "direction_deg": h["wind_direction_10m"][i],
-        "rafales_kt": h["wind_gusts_10m"][i],
-        "code_meteo": col("weather_code", i),
-        "cape": col("cape", i),
-        "lifted_index": col("lifted_index", i),
-        "proba_pluie": col("precipitation_probability", i),
-    } for i, t in enumerate(h["time"])}
+    def mesure(modele, i):
+        v = col("wind_speed_10m", modele, i)
+        d = col("wind_direction_10m", modele, i)
+        r = col("wind_gusts_10m", modele, i)
+        if v is None or d is None:
+            return None
+        return (v, d, r if r is not None else v)
+
+    ordre = {"arome": MODELES_VENT, "ukv": list(reversed(MODELES_VENT))
+             }.get(MODE_VENT, MODELES_VENT)
+
+    resultat = {}
+    for i, t in enumerate(h["time"]):
+        if not multi:
+            m = mesure(None, i)
+            vit, direc, raf = m if m else (None, None, None)
+            source, ecart = "Open-Meteo", None
+        else:
+            fins = {mod: mesure(mod, i) for mod in MODELES_VENT}
+            dispo = [mod for mod in ordre if fins[mod]]
+            ecart = None
+            if len(dispo) == len(MODELES_VENT):
+                vitesses = [fins[mod][0] for mod in MODELES_VENT]
+                ecart = round(max(vitesses) - min(vitesses), 1)
+            if MODE_VENT == "moyenne" and len(dispo) > 1:
+                vit, direc, raf = _moyenne_vent([fins[mod] for mod in dispo])
+                source = " + ".join(NOMS_MODELES[mod] for mod in dispo)
+            elif dispo:
+                vit, direc, raf = fins[dispo[0]]
+                source = NOMS_MODELES[dispo[0]]
+            else:
+                vit = direc = raf = None
+                source = "—"
+                for mod in MODELES_VENT_RELAIS:
+                    m = mesure(mod, i)
+                    if m:
+                        vit, direc, raf = m
+                        source = NOMS_MODELES[mod]
+                        break
+
+        def indice(nom):
+            # Les indices d'orage : choix automatique d'abord, qui les a tous.
+            for mod in (["best_match"] + tous) if multi else [None]:
+                v = col(nom, mod, i)
+                if v is not None:
+                    return v
+            return None
+
+        resultat[datetime.fromisoformat(t)] = {
+            "vitesse_kt": vit, "direction_deg": direc, "rafales_kt": raf,
+            "modele_vent": source, "ecart_vent_kt": ecart,
+            "code_meteo": indice("weather_code"),
+            "cape": indice("cape"),
+            "lifted_index": indice("lifted_index"),
+            "proba_pluie": indice("precipitation_probability"),
+        }
+    return resultat
 
 
 def recuperer_soleil(sp, heures: int) -> dict:
@@ -785,6 +890,8 @@ class Creneau:
     dir_vent: float
     rafales_kt: float
     cat_vent: str
+    modele_vent: str
+    ecart_vent_kt: float | None
     heures_depuis_pm: float
     hauteur_eau_m: float | None
     dh_dt_m_h: float
@@ -912,6 +1019,8 @@ def construire_creneaux(sp, heures: int):
             dir_vent=round(v["direction_deg"] or 0.0),
             rafales_kt=round(v["rafales_kt"] or 0.0, 1),
             cat_vent=categorie_vent(sp, v["direction_deg"] or 0.0),
+            modele_vent=v.get("modele_vent", "—"),
+            ecart_vent_kt=v.get("ecart_vent_kt"),
             heures_depuis_pm=round(delta_pm, 2),
             hauteur_eau_m=round(eau, 2) if eau is not None else None,
             dh_dt_m_h=round(dh, 2), translation_m_min=trans,
