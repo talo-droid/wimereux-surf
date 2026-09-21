@@ -192,11 +192,16 @@ SEUIL_RAFALES_KT = 10.0
 # ne couvrent qu'environ deux jours ; au-delà, on relaie sur les suivants.
 #   AROME HD : Météo-France, ~1,5 km, jusqu'à ~42 h
 #   UKV      : Met Office, ~2 km, jusqu'à ~48 h, très bon sur la Manche
+# Le Met Office fait tourner l'UKV jusqu'à 120 h, mais Open-Meteo n'en
+# redistribue que 48. Au-delà, on relaie par le global du Met Office : même
+# physique que l'UKV, donc une prévision cohérente de bout en bout.
 MODELES_VENT = ["meteofrance_arome_france_hd", "ukmo_uk_deterministic_2km"]
-MODELES_VENT_RELAIS = ["meteofrance_arpege_europe", "best_match"]
+MODELES_VENT_RELAIS = ["ukmo_global_deterministic_10km",
+                       "meteofrance_arpege_europe", "best_match"]
 NOMS_MODELES = {
     "meteofrance_arome_france_hd": "AROME HD",
     "ukmo_uk_deterministic_2km": "UKV",
+    "ukmo_global_deterministic_10km": "UKMO Global",
     "meteofrance_arpege_europe": "ARPEGE",
     "best_match": "Open-Meteo",
 }
@@ -575,13 +580,43 @@ def effet_courant(vitesse_kt, direction_vers_deg, dir_houle_deg):
 # RÉCUPÉRATION
 # ==========================================================================
 
+# Attentes entre deux tentatives, en secondes. Trois essais au total.
+ATTENTES_RESEAU = [3, 10]
+
+
 def _get_json(url: str, params: dict) -> dict:
+    """
+    Appel HTTP avec nouvelles tentatives. Une coupure réseau passagère
+    (délai dépassé, service surchargé) ne doit pas faire tomber tout un
+    spot : on réessaie deux fois en espaçant. Une erreur de requête (4xx,
+    hors 429), elle, ne se corrigera pas en réessayant — on abandonne tout
+    de suite.
+    """
+    import time
+    import urllib.error
+
     requete = urllib.request.Request(
         f"{url}?{urllib.parse.urlencode(params)}",
         headers={"User-Agent": "wimereux-surf/1.0"},
     )
-    with urllib.request.urlopen(requete, timeout=45) as reponse:
-        return json.loads(reponse.read().decode("utf-8"))
+    hote = urllib.parse.urlparse(url).netloc
+    derniere = None
+    for tentative, attente in enumerate([0] + ATTENTES_RESEAU):
+        if attente:
+            print(f"  {hote} : nouvel essai dans {attente} s ({derniere})",
+                  file=sys.stderr)
+            time.sleep(attente)
+        try:
+            with urllib.request.urlopen(requete, timeout=45) as reponse:
+                return json.loads(reponse.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            if 400 <= e.code < 500 and e.code != 429:
+                raise RuntimeError(f"{hote} a refusé la requête ({e.code})") from e
+            derniere = f"HTTP {e.code}"
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+            derniere = str(getattr(e, "reason", e))
+    # Le nom du service dans le message : on sait tout de suite qui a flanché.
+    raise RuntimeError(f"{hote} injoignable après 3 essais ({derniere})")
 
 
 def _premier_non_nul(*valeurs):
@@ -1085,7 +1120,7 @@ def resumer_journees(creneaux, extrema, soleil) -> list[dict]:
     return resumes
 
 
-def exporter_json(resultats: dict, chemin: Path) -> None:
+def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None) -> None:
     """
     Un seul fichier pour les deux spots. La page charge tout d'un coup et
     bascule de l'un à l'autre sans nouvelle requête.
@@ -1094,6 +1129,9 @@ def exporter_json(resultats: dict, chemin: Path) -> None:
     charge = {
         # Avec le décalage explicite : le navigateur sait alors le convertir.
         "genere_le": maintenant().isoformat(timespec="minutes"),
+        # Ordre fixe, celui de SPOTS. Un spot en échec reste présent avec sa
+        # raison : mieux vaut « Calais indisponible, parce que… » qu'une
+        # disparition silencieuse.
         "spots": [
             {
                 "cle": cle,
@@ -1102,13 +1140,17 @@ def exporter_json(resultats: dict, chemin: Path) -> None:
                 "site_maree": SPOTS[cle]["site_maree"],
                 "pic_maree_h": SPOTS[cle]["pic_maree_h"],
                 "liens": SPOTS[cle].get("liens", {}),
+                "erreur": (erreurs or {}).get(cle),
                 "creneaux": [{**asdict(c), "instant": c.instant.isoformat()}
-                             for c in r["creneaux"]],
+                             for c in resultats[cle]["creneaux"]]
+                            if cle in resultats else [],
                 "marees": [{**e, "instant": e["instant"].isoformat()}
-                           for e in r["extrema"]],
-                "journees": r["journees"],
+                           for e in resultats[cle]["extrema"]]
+                          if cle in resultats else [],
+                "journees": resultats[cle]["journees"] if cle in resultats else [],
             }
-            for cle, r in resultats.items()
+            for cle in SPOTS
+            if cle in resultats or cle in (erreurs or {})
         ],
     }
     chemin.write_text(json.dumps(charge, ensure_ascii=False), encoding="utf-8")
@@ -1191,13 +1233,17 @@ def main() -> int:
 
     cles = args.spot or list(SPOTS)
     resultats = {}
+    erreurs = {}
 
     for cle in cles:
         try:
             creneaux, extrema, resumes = construire_creneaux(SPOTS[cle], args.heures)
         except Exception as erreur:
+            import traceback
             print(f"[{SPOTS[cle]['nom']}] erreur de récupération : {erreur}",
                   file=sys.stderr)
+            traceback.print_exc()          # le détail, pour le journal Actions
+            erreurs[cle] = f"{type(erreur).__name__} : {erreur}"
             continue
         resultats[cle] = {"creneaux": creneaux, "extrema": extrema,
                           "journees": resumes}
@@ -1209,7 +1255,7 @@ def main() -> int:
         return 1
 
     if args.json:
-        exporter_json(resultats, args.json)
+        exporter_json(resultats, args.json, erreurs)
         total = sum(len(r["creneaux"]) for r in resultats.values())
         print(f"{total} créneaux sur {len(resultats)} spot(s) "
               f"écrits dans {args.json}")

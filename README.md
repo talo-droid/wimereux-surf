@@ -141,8 +141,10 @@ disponibles tous les deux :
 - **AROME HD** (Météo-France), environ 1,5 km, jusqu'à ~42 h ;
 - **UKV** (Met Office), 2 km, jusqu'à ~48 h, réputé sur la Manche.
 
-Au-delà de deux jours, ARPEGE prend le relais, puis le choix automatique
-d'Open-Meteo. Le modèle utilisé s'affiche dans l'infobulle de chaque case de
+Au-delà de deux jours, le global du Met Office (10 km, 7 jours) prend le
+relais : même physique que l'UKV, donc une prévision cohérente. Le Met Office
+fait tourner l'UKV jusqu'à 120 h, mais Open-Meteo n'en redistribue que 48.
+ARPEGE puis le choix automatique d'Open-Meteo servent de secours ultimes. Le modèle utilisé s'affiche dans l'infobulle de chaque case de
 vent, et un cadre pointillé signale un désaccord d'au moins 5 nœuds.
 
 Le vent est calculé un peu au large (`point_vent` dans `SPOTS`) : posé sur le

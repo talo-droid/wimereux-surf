@@ -366,7 +366,7 @@
   Translation : vitesse de déplacement du bord de l'eau sur l'estran.
   Le courant est indicatif et n'entre pas dans la note.
   <br>Vent : moyenne d'AROME HD (Météo-France, 1,5 km) et d'UKV (Met Office,
-  2 km) sur les deux premiers jours, puis ARPEGE. Un cadre pointillé signale
+  2 km) sur les deux premiers jours, puis global du Met Office (10 km). Un cadre pointillé signale
   un écart d'au moins 5 nœuds entre les deux modèles fins.
   <br>Orage : combiné du code météo, de la CAPE et de l'indice de soulèvement,
   étendu aux deux heures voisines. Un risque élevé met la note à zéro.
@@ -665,7 +665,7 @@ function carteSpot(spot, index) {
   if (!meilleur) {
     b.innerHTML = `<span class="mat"></span><span class="corps">
       <span class="nom">${spot.nom}</span>
-      <span class="quand">pas de données</span></span>`;
+      <span class="quand">${spot.erreur ? "indisponible" : "pas de données"}</span></span>`;
   } else {
     const d = new Date(meilleur.instant);
     const n = meilleur.note_totale;
@@ -703,8 +703,11 @@ function afficher() {
   const spot = DONNEES.spots[SPOT_ACTIF];
   majLiens(spot);
   if (!spot || !spot.creneaux.length) {
-    contenu.insertAdjacentHTML("beforeend",
-      `<p class="vide">Aucun créneau de jour pour ce spot.</p>`);
+    const raison = spot && spot.erreur
+      ? `Le calcul a échoué pour ${spot.nom} lors de la dernière mise à jour.
+         <br><small>${spot.erreur.replace(/</g, "&lt;")}</small>`
+      : "Aucun créneau de jour pour ce spot.";
+    contenu.insertAdjacentHTML("beforeend", `<p class="vide">${raison}</p>`);
     return;
   }
 
