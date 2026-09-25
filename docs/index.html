@@ -467,7 +467,8 @@ function motifZero(c, disc) {
   if (c.risque_orage === "élevé") return "orage";
   if (disc === "wing") {
     const w = c.wing_detail || {};
-    if ((w.force ?? 1) === 0) return "vent trop faible";
+    if ((w.force ?? 1) === 0) return c.toilage === "surtoilé"
+      ? "trop de vent pour ta plus petite aile" : "pas assez de vent pour ta plus grande aile";
     if ((w.direction ?? 1) <= 0.15) return "vent offshore : il pousse vers le large";
     return "";
   }
@@ -543,8 +544,10 @@ function tableauJournee(creneaux, dureeSession) {
           cel.innerHTML = carre(n, 26, c.fiabilite ?? 1);
           if (ligne.cle === "wing" && dans(sWing, c)) cel.classList.add("session-wing");
           const motif = n === 0 ? motifZero(c, ligne.cle) : "";
+          const aile = ligne.cle === "wing" && c.aile_m2
+            ? ` · aile ${String(c.aile_m2).replace(".", ",")} m², ${c.toilage}` : "";
           cel.title = (motif ? `0 / 5 — ${motif}` : `${ligne.cle} ${n.toFixed(1)} / 5`)
-            + ` · ${libelleFiabilite(c.fiabilite ?? 1)}`;
+            + aile + ` · ${libelleFiabilite(c.fiabilite ?? 1)}`;
           break;
         }
         case "hauteur":
@@ -822,7 +825,8 @@ function afficher() {
     (bWing && bWing.session_wing > 0
       ? `Wing : <b>${plage(bWing)}</b>, ${bWing.session_wing.toFixed(1)}/5 —
          ${Math.round(bWing.vitesse_kt)} à ${Math.round(bWing.rafales_kt)} nds
-         ${rose(bWing.dir_vent)}${orage(bWing)}`
+         ${rose(bWing.dir_vent)}${bWing.aile_m2
+           ? `, aile ${String(bWing.aile_m2).replace(".", ",")} m²` : ""}${orage(bWing)}`
       : `Wing : pas de fenêtre praticable sur la période.`)
     + `<br><small>Houle attendue de ${spot.bouee}, optimum de marée surf
        ${quandMaree}. Sessions de ${duree} h. Carrés pâles = prévision moins

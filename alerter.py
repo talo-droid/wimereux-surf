@@ -91,6 +91,8 @@ def ligne(etiquette, nom, disc, debut, note, duree, c=None):
             detail = f"  {c['hauteur_m']:.1f} m à {c['tpeak_s']:.0f} s"
         else:
             detail = f"  {round(c['vitesse_kt'])}-{round(c['rafales_kt'])} nds"
+            if c.get("aile_m2"):
+                detail += f", aile {str(c['aile_m2']).replace('.', ',')} m²"
     return (f"{etiquette} {nom} {disc} {JOURS[debut.weekday()]} {debut.day} "
             f"{debut:%H}h-{fin:%H}h : {note:.1f}/5{detail}")
 

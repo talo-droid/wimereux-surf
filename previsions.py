@@ -220,7 +220,9 @@ ORAGE_PLAFOND_NOTE = 2.5
 # donne zéro. Ce principe remplace les anciens plafonds et vétos de confort.
 POIDS_SURF = {"houle": 0.50, "vent": 0.30, "maree": 0.20}
 POIDS_MAREE = {"position": 0.6, "stabilite": 0.4}
-POIDS_WING = {"force": 0.40, "rafales": 0.20, "maree": 0.25, "mer": 0.15}
+# Pour la wing, la force du vent n'entre pas dans la moyenne : elle la
+# multiplie. Sous-toilé ou débordé, le reste ne compte plus.
+POIDS_WING = {"rafales": 0.33, "maree": 0.42, "mer": 0.25}
 
 # --- Session ---------------------------------------------------------------
 # On surfe des sessions, pas des heures : la note de session est la moyenne
@@ -493,18 +495,73 @@ def note_surf(houle, maree, vent, orage="nul") -> float:
 # l'eau sur les bancs, et surtout PAS de vent qui pousse vers le large.
 # Les courbes ci-dessous sont un point de départ, pour une wing moyenne.
 
-WING_FORCE = [(0, 0), (9, 0), (11, 1), (13, 2.5), (15, 4.2), (17, 5), (24, 5),
-              (28, 3.8), (32, 2.2), (36, 0.8), (50, 0.3)]
-# Rafales rapportées au vent moyen.
-WING_RAFALES = [(1.0, 5), (1.2, 5), (1.35, 3.5), (1.5, 2), (1.7, 1), (2.0, 0.5)]
+# Ton matériel et ton gabarit. Les courbes de force en sont dérivées : si ton
+# quiver change, change seulement cette ligne.
+RIDEUR = {"poids_kg": 75, "ailes_m2": [4.5, 5.0, 5.5]}
+
+# Vent idéal d'une aile : règle usuelle des fabricants, taille ≈ k × poids ÷
+# vent. k vaut 1,05 pour un bon niveau ; on majore à 1,10 en intermédiaire.
+K_TAILLE = 1.10
+
+
+def vent_ideal(taille_m2: float) -> float:
+    return K_TAILLE * RIDEUR["poids_kg"] / taille_m2
+
+
+def _courbes_wing():
+    """
+    Courbes de force déduites du quiver. Le bas vient de la plus grande
+    aile (le vent minimum pour décoller), le haut de la plus petite (le
+    vent au-delà duquel tu es surtoilé). Les coefficients traduisent un
+    niveau intermédiaire qui ne cherche pas les grosses conditions.
+    """
+    bas = vent_ideal(max(RIDEUR["ailes_m2"]))    # 15,0 nds avec une 5,5
+    haut = vent_ideal(min(RIDEUR["ailes_m2"]))   # 18,3 nds avec une 4,5
+    force = [(0, 0), (0.80 * bas, 0), (0.90 * bas, 2.5), (1.00 * bas, 4.3),
+             (1.10 * bas, 5), (1.30 * haut, 5), (1.42 * haut, 2.5),
+             (1.60 * haut, 0.5), (60, 0.2)]
+    # Plafond imposé par les rafales : même avec un vent moyen correct, des
+    # rafales trop fortes pour la plus petite aile rendent la session pénible.
+    puissance = [(0, 5), (1.55 * haut, 5), (1.75 * haut, 2), (2.0 * haut, 0.5), (80, 0.2)]
+    return force, puissance
+
+
+WING_FORCE, WING_PUISSANCE = _courbes_wing()
+
+# Rafales rapportées au vent moyen. Un vent irrégulier pèse plus lourd pour
+# un intermédiaire, qui relance moins facilement dans les trous.
+WING_RAFALES = [(1.0, 5), (1.2, 5), (1.3, 3.8), (1.45, 2.2), (1.65, 1), (2.0, 0.5)]
 # Écart entre le vent et l'axe offshore réel de la plage : 0° = vent qui
 # pousse droit vers le large. C'est un facteur de sécurité, pas de confort.
 WING_DIRECTION = [(0, 0.1), (45, 0.15), (70, 0.6), (90, 1.0), (145, 1.0), (180, 0.8)]
 # Niveau d'eau entre basse mer (0) et pleine mer (1) : à basse mer, les
 # bancs affleurent et l'aileron touche.
 WING_MAREE = [(0, 0.5), (0.25, 1.5), (0.45, 4), (0.6, 5), (1, 5)]
-# Hauteur de mer : au-delà, le shorebreak complique la mise à l'eau.
-WING_MER = [(0, 5), (1.2, 5), (1.8, 3.5), (2.5, 2), (3.2, 1), (5, 0.5)]
+# Hauteur de mer : au-delà, le shorebreak complique la mise à l'eau. Réglée
+# plus serrée pour qui ne cherche pas les grosses conditions.
+WING_MER = [(0, 5), (1.0, 5), (1.5, 3.5), (2.0, 2), (2.5, 1), (4, 0.3)]
+
+
+def aile_conseillee(vitesse_kt, rafales_kt):
+    """
+    Aile du quiver la mieux adaptée au vent moyen, et état de toilage :
+    « sous-toilé » sous le seuil de décollage de la plus grande aile,
+    « surtoilé » au-delà du confortable avec la plus petite.
+    """
+    if not vitesse_kt or vitesse_kt <= 0:
+        return None, "sous-toilé"
+    ideale = K_TAILLE * RIDEUR["poids_kg"] / vitesse_kt
+    ailes = sorted(RIDEUR["ailes_m2"])
+    aile = min(ailes, key=lambda a: abs(a - ideale))
+    bas = vent_ideal(max(ailes))
+    haut = vent_ideal(min(ailes))
+    if vitesse_kt < 0.92 * bas:
+        etat = "sous-toilé"
+    elif vitesse_kt > 1.30 * haut or (rafales_kt or 0) > 1.55 * haut:
+        etat = "surtoilé"
+    else:
+        etat = "bien toilé"
+    return aile, etat
 
 
 def facteur_direction_wing(sp, direction_deg) -> float:
@@ -520,14 +577,18 @@ def score_wing(sp, vitesse_kt, rafales_kt, direction_deg, fraction_maree,
     if vitesse_kt is None:
         return 0.0, {}
     detail = {
-        "force": round(_interp(vitesse_kt, WING_FORCE), 2),
+        # La force retenue est la plus défavorable entre le vent moyen et le
+        # plafond imposé par les rafales.
+        "force": round(min(_interp(vitesse_kt, WING_FORCE),
+                           _interp(rafales_kt or vitesse_kt, WING_PUISSANCE)), 2),
         "rafales": round(_interp((rafales_kt or vitesse_kt) / max(vitesse_kt, 1.0),
                                  WING_RAFALES), 2),
         "maree": round(_interp(fraction_maree, WING_MAREE), 2),
         "mer": round(_interp(hauteur_m or 0.0, WING_MER), 2),
         "direction": facteur_direction_wing(sp, direction_deg),
     }
-    n = moyenne_geometrique(detail, POIDS_WING) * detail["direction"]
+    n = (moyenne_geometrique(detail, POIDS_WING)
+         * detail["force"] / 5.0 * detail["direction"])
     return appliquer_orage(round(n, 2), orage), detail
 
 
@@ -1000,6 +1061,8 @@ class Creneau:
     # notes wing
     note_wing: float
     wing_detail: dict
+    aile_m2: float | None
+    toilage: str
     # sessions de DUREE_SESSION_H heures commençant à cette heure
     session_surf: float | None = None
     session_wing: float | None = None
@@ -1108,6 +1171,7 @@ def construire_creneaux(sp, heures: int):
         n_wing, detail_wing = score_wing(sp, v["vitesse_kt"], v["rafales_kt"],
                                          v["direction_deg"], niveau,
                                          h["hauteur_m"], orage)
+        aile, toilage = aile_conseillee(v["vitesse_kt"], v["rafales_kt"])
         libelle_courant, _ = effet_courant(c.get("vitesse_kt"),
                                            c.get("direction_deg"),
                                            h["direction_deg"] or 0)
@@ -1146,6 +1210,7 @@ def construire_creneaux(sp, heures: int):
             note_maree=n_maree, note_vent=n_vent,
             note_totale=note_surf(n_houle, n_maree, n_vent, orage),
             note_wing=n_wing, wing_detail=detail_wing,
+            aile_m2=aile, toilage=toilage,
         ))
 
     calculer_sessions(creneaux)

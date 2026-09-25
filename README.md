@@ -43,10 +43,21 @@ plafonnée à 2,5.
   note : il dépend du coefficient, comme la stabilité, et le compter deux fois
   pénalisait doublement les vives-eaux.
 
-**Wing** = force du vent (0,4) × rafales (0,2) × niveau d'eau (0,25) × état de
-la mer (0,15), multipliés par un **facteur de sécurité** : un vent qui pousse
-vers le large divise la note par dix. Ce facteur utilise l'orientation réelle
-de la plage (`face_plage`), pas l'axe de préférence du surf.
+**Wing** = rafales × niveau d'eau × état de la mer, en moyenne géométrique,
+puis multipliés par deux facteurs : la **force du vent**, qui agit comme une
+condition (sous-toilé ou débordé, le reste ne compte plus), et un **facteur
+de sécurité** qui divise la note par dix quand le vent pousse vers le large.
+Ce dernier utilise l'orientation réelle de la plage (`face_plage`), pas l'axe
+de préférence du surf.
+
+Les courbes de force sont déduites de ton matériel, déclaré dans `RIDEUR` :
+poids et tailles d'ailes. Le vent idéal d'une aile suit la règle usuelle des
+fabricants, taille ≈ 1,10 × poids ÷ vent, majorée pour un niveau
+intermédiaire. Le bas de la courbe vient de la plus grande aile, le haut de
+la plus petite. Pour 75 kg avec 4,5 / 5 / 5,5 m² : rien sous 12 nœuds, bon dès
+15, plein régime de 17 à 23, puis déclin rapide au-delà de 25 ou avec des
+rafales au-dessus de 28. Chaque créneau indique aussi l'aile conseillée. Si
+ton quiver change, modifie seulement `RIDEUR`.
 
 **Sessions.** On note des heures, mais on surfe des sessions : la « meilleure
 session » est la meilleure fenêtre de deux heures consécutives de jour.
@@ -105,7 +116,9 @@ Réglages communs :
 |---|---|
 | `POIDS_SURF`, `POIDS_WING`, `POIDS_MAREE` | poids des moyennes géométriques |
 | `VENT_OFFSHORE`, `VENT_ONSHORE` | courbes de note de vent surf selon la force |
-| `WING_FORCE`, `WING_RAFALES`, `WING_DIRECTION`, `WING_MAREE`, `WING_MER` | courbes de la wing, pour une wing moyenne |
+| `RIDEUR` | ton poids et tes ailes : les courbes de force wing en dérivent |
+| `K_TAILLE` | coefficient de la règle taille ≈ k × poids ÷ vent |
+| `WING_RAFALES`, `WING_DIRECTION`, `WING_MAREE`, `WING_MER` | autres courbes de la wing |
 | `DUREE_SESSION_H` | durée d'une session, 2 h par défaut |
 | `FIABILITE_ECHEANCE` | baisse de confiance avec l'échéance |
 | `CALIBRATION_HOULE` | facteur correctif de hauteur |
