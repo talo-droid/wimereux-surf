@@ -1,0 +1,5 @@
+# Fichiers de travail de l'alerte, régénérés à chaque exécution
+message.txt
+priorite.txt
+# Cache Python
+__pycache__/

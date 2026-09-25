@@ -1,19 +1,59 @@
-# Prévisions de surf — Côte d'Opale
+# Prévisions de surf et de wing — Côte d'Opale
 
-Notation des créneaux de surf à **Wimereux** et à **Calais**, sur trois critères
-(houle, marée, vent) plus un véto orage, calculée toutes les 3 heures par
-GitHub Actions et publiée sur une page consultable au téléphone.
+Notation des sessions de **surf** et de **wing** à **Wimereux** et à
+**Calais**, calculée toutes les 3 heures par GitHub Actions et publiée sur une
+page consultable au téléphone, avec des alertes quand une bonne session se
+profile.
 
 Les deux spots ne se ressemblent pas et sont paramétrés séparément :
 
 | | Wimereux | Calais |
 |---|---|---|
 | Bouée de référence | Hastings (CEFAS) | Sandettie |
-| Orientation | ouest-nord-ouest | nord |
+| La plage regarde vers | l'ouest-nord-ouest | le nord |
 | Fenêtre de houle | 200-270° | 300-60° |
-| Optimum de marée | 1 h après la PM | 1 h 30 avant la PM |
+| Optimum de marée (surf) | 1 h après la PM | 1 h 30 avant la PM |
+| Période de houle visée | 5,5 à 7,5 s | 4,5 à 6,5 s |
 | Port de marée | Boulogne-sur-Mer | Calais |
-| Fetch dominant | sud-ouest (Manche) | nord (mer du Nord) |
+| Trajet depuis chez toi | 0 min | 35 min |
+
+## Comment la note est construite
+
+**Principe commun.** Chaque note est une *moyenne géométrique* de sous-notes
+sur 5. Contrairement à une moyenne ordinaire, un critère mauvais n'y est pas
+compensé par les autres : une houle parfaite ne sauve pas un vent pourri. Tous
+les barèmes sont continus, sans marche où deux centimètres ou un degré
+feraient basculer la note. Le seul véto restant est l'orage, parce qu'il
+relève de la sécurité : risque élevé, note nulle ; risque modéré, note
+plafonnée à 2,5.
+
+**Surf** = houle (poids 0,5) × vent (0,3) × marée (0,2).
+
+- *Houle* : jusqu'à 3 points de hauteur et 2 de période, plus ou moins un
+  demi-point selon le type de déferlement (nombre d'Iribarren) et selon la
+  part d'énergie portée par la houle longue ; le tout multiplié par la
+  fenêtre de direction, qui s'éteint progressivement sur 15° au lieu de
+  couper net.
+- *Vent* : projeté sur l'axe de la plage, il passe continûment d'une courbe
+  « offshore » à une courbe « onshore » selon l'angle ; les rafales retirent
+  jusqu'à un point et demi.
+- *Marée* : position dans le cycle × stabilité de la zone de déferlement
+  (vitesse à laquelle le bord de l'eau se déplace sur l'estran).
+- Le RTR (marnage rapporté à la houle) est affiché mais n'entre plus dans la
+  note : il dépend du coefficient, comme la stabilité, et le compter deux fois
+  pénalisait doublement les vives-eaux.
+
+**Wing** = force du vent (0,4) × rafales (0,2) × niveau d'eau (0,25) × état de
+la mer (0,15), multipliés par un **facteur de sécurité** : un vent qui pousse
+vers le large divise la note par dix. Ce facteur utilise l'orientation réelle
+de la plage (`face_plage`), pas l'axe de préférence du surf.
+
+**Sessions.** On note des heures, mais on surfe des sessions : la « meilleure
+session » est la meilleure fenêtre de deux heures consécutives de jour.
+
+**Fiabilité.** Chaque note porte une confiance entre 0 et 1, qui baisse avec
+l'échéance et quand les modèles se contredisent. Sur la page, les carrés
+d'une prévision peu fiable sont plus pâles.
 
 ## Mise en route
 
@@ -45,86 +85,88 @@ Les deux spots ne se ressemblent pas et sont paramétrés séparément :
 
 ## Réglages
 
-Tout se règle en tête de `previsions.py` :
-
-Le dictionnaire `SPOTS` en tête de fichier contient tout ce qui distingue les
-deux spots :
+Tout se règle en tête de `previsions.py`. Le dictionnaire `SPOTS` contient ce
+qui distingue les deux spots :
 
 | Clé | Rôle |
 |---|---|
-| `point_houle` | position de la bouée / du point de grille — à garder figé |
-| `direction_houle` | fenêtre de direction (véto), gère le passage par 0° |
-| `pic_maree_h` | optimum de marée, en heures par rapport à la pleine mer |
-| `secteur_favorable`, `secteur_travers` | secteurs de vent |
-| `fetch_km` | fetch par direction, la donnée la plus grossière — à affiner |
-| `pente_haute`, `pente_basse` | profil de plage, pilote Iribarren et la translation |
+| `point_houle`, `point_vent` | points de calcul — à garder figés |
+| `direction_houle`, `marge_direction` | fenêtre de houle et largeur de son extinction |
+| `pic_maree_h` | optimum de marée surf, en heures par rapport à la PM |
+| `axe_offshore_surf` | direction de vent idéale pour le surf, issue de l'expérience |
+| `face_plage` | direction vers laquelle la plage regarde, pour la sécurité wing — **à vérifier** |
+| `trajet_min` | temps pour être à l'eau, utilisé par les alertes |
+| `seuils_houle` | barème de houle propre au spot |
+| `pente_haute`, `pente_basse` | profil de plage, pilote Iribarren et la translation — **estimations** |
 
-Réglages communs aux deux spots :
+Réglages communs :
 
 | Constante | Rôle |
 |---|---|
-| `CALIBRATION_HOULE` | facteur correctif hauteur, à réajuster d'après tes sessions |
-| `HAUTEUR_NULLE_M`, `HAUTEUR_MIN_M`, `HAUTEUR_PLEINE_M` | montée progressive des points de hauteur |
-| `SEUIL_TPEAK_1`, `SEUIL_TPEAK_2` | paliers de période (6 s et 7 s) |
-| `XI_MOU`, `XI_FRANC` | seuils d'Iribarren, relatifs au site |
-| `TRANSLATION_*` | seuils de stabilité de la zone de déferlement |
-| `RTR_*` | pénalité d'amplitude de marée relative |
+| `POIDS_SURF`, `POIDS_WING`, `POIDS_MAREE` | poids des moyennes géométriques |
+| `VENT_OFFSHORE`, `VENT_ONSHORE` | courbes de note de vent surf selon la force |
+| `WING_FORCE`, `WING_RAFALES`, `WING_DIRECTION`, `WING_MAREE`, `WING_MER` | courbes de la wing, pour une wing moyenne |
+| `DUREE_SESSION_H` | durée d'une session, 2 h par défaut |
+| `FIABILITE_ECHEANCE` | baisse de confiance avec l'échéance |
+| `CALIBRATION_HOULE` | facteur correctif de hauteur |
 | `CAPE_*`, `LI_*` | seuils de risque orageux |
-| `POIDS` | pondération des trois critères dans la note globale |
+
+Les courbes s'écrivent comme des listes de points `(valeur, note)` reliés par
+des segments : pour déplacer un seuil, on déplace un point.
 
 ## Le journal
 
-Tous les seuils de ce projet sont des hypothèses raisonnables, pas des mesures.
+Tous les réglages ci-dessus sont des hypothèses raisonnables, pas des mesures.
 Le journal est ce qui les rendra justes.
 
 ### Remplir
 
-Après chaque sortie, ajoute **une ligne** à `journal.csv` :
+Le plus simple : le bloc **Noter une session ou une observation** en bas de
+la page. Il prépare la ligne, la copie, et ouvre `journal.csv` en édition sur
+GitHub ; il ne reste qu'à coller à la fin du fichier et valider.
+
+Format d'une ligne :
 
 ```
-date,heure,spot,note,commentaire
-2026-09-20,16,wimereux,4,belles séries sur la barre du milieu
+date,heure,spot,discipline,type,conditions,session,commentaire
+2026-09-27,16,wimereux,surf,session,4,3,belles séries mais du monde
+2026-09-28,11,calais,wing,observation,2,,vent tombé à midi
 ```
 
-- `date` au format AAAA-MM-JJ
-- `heure` sur 24 h, sans minutes — l'heure du créneau, pas celle de ta sortie
-  de l'eau
-- `spot` : `wimereux` ou `calais`
-- `note` : ce que TU as pensé de la session, de 1 à 5. C'est la seule donnée
-  que le modèle ne peut pas deviner, et la seule qui compte vraiment.
-- `commentaire` : libre, et facultatif. Mets une virgule dans du texte et il
-  faudra l'entourer de guillemets.
+- `discipline` : `surf` ou `wing`.
+- `type` : `session` si tu étais à l'eau, `observation` si tu as seulement
+  regardé la mer.
+- `conditions` : la qualité de la mer et du vent, de 1 à 5. C'est **elle**
+  qu'on compare à la note calculée.
+- `session` : ton plaisir, de 1 à 5, vide pour une observation. Il dépend
+  aussi de la fatigue, du monde à l'eau et du matériel ; il est conservé mais
+  jamais comparé au modèle.
 
-Le plus simple : le bouton **Noter une session** en bas de la page. Tu choisis
-le jour, l'heure, le spot et la note, la ligne se construit toute seule, un
-bouton la copie et un autre ouvre `journal.csv` en édition sur GitHub. Il ne
-reste qu'à coller à la fin du fichier et valider. Trente secondes sur le
-parking, sans rien taper de travers.
+**Note aussi les jours où tu n'y vas pas.** Tu iras surtout quand la
+prévision est bonne : sans observations, tu n'apprendrais que les erreurs par
+excès d'optimisme, jamais les bonnes journées que le calcul a ratées. Depuis
+Wimereux, un coup d'œil à la mer suffit.
 
-Le lien vers GitHub se déduit de l'adresse de la page, il n'y a rien à
-configurer. Il n'apparaît pas quand tu testes en local.
-
-Ne note que ce que tu as vécu. Une ligne honnête vaut mieux que dix reconstituées
-de mémoire, et une mauvaise session est aussi informative qu'une bonne.
+Les lignes à l'ancien format (`date,heure,spot,note,commentaire`) restent
+lues : la note unique vaut alors pour les conditions et la session.
 
 ### Analyser
 
 ```
 python3 analyser.py
-python3 analyser.py --spot calais
+python3 analyser.py --spot calais --discipline wing
 ```
 
-Le script rapproche `journal.csv` des copies datées déposées dans `archives/`
-par chaque exécution, et affiche trois choses : le détail session par session
-avec l'écart entre ta note et la note calculée ; le classement des critères
-selon leur lien avec ton ressenti ; et la dérive de la prévision selon qu'elle
-datait de la veille ou de trois jours avant.
+Pour chaque discipline, le script affiche l'écart entre conditions observées
+et note calculée, compte les bonnes conditions ratées et les fausses
+promesses, classe les critères selon leur lien avec les conditions observées,
+et montre comment la prévision se dégrade avec son ancienneté. En dessous
+d'une douzaine d'entrées, les corrélations sont du bruit, et le script le
+dit.
 
-En dessous d'une douzaine de sessions les corrélations sont du bruit, et le
-script te le dit. À partir de vingt ou trente, elles commencent à dire quelque
-chose : quel critère porte l'information, lequel n'apporte rien, et à partir de
-quel horizon le modèle décroche chez toi. C'est ce qu'aucun site généraliste ne
-te donnera.
+Règle d'or : ajuster peu de paramètres, les plus influents d'abord. Avec une
+vingtaine de réglages et quelques dizaines d'entrées, tout retoucher revient à
+caler l'outil sur du bruit.
 
 ## Attribution
 
@@ -157,31 +199,38 @@ de l'étape « Calculer les notes » du workflow.
 
 ## Recevoir une notification
 
-Le workflow prévient quand un créneau dépasse un seuil, par le service
-**ntfy** : gratuit, sans compte, et l'application Android reçoit la
-notification directement.
+Le workflow prévient par **ntfy** : gratuit, sans compte, l'application
+Android reçoit la notification directement.
 
 1. Installe *ntfy* depuis le Play Store.
-2. Choisis un sujet à toi, long et peu devinable — par exemple
-   `opale-surf-8kq2vx`. Toute personne connaissant ce mot peut lire tes
-   notifications, alors évite `surf` ou ton prénom.
+2. Choisis un sujet à toi, long et impossible à deviner. Génère-le plutôt
+   que de l'inventer :
+   `python3 -c "import secrets; print('opale-' + secrets.token_hex(6))"`.
+   Toute personne connaissant ce mot peut lire tes notifications — et en
+   envoyer —, alors ne le publie nulle part.
 3. Dans l'application, abonne-toi à ce sujet.
 4. Dans le dépôt, *Settings → Secrets and variables → Actions → Secrets*,
    crée `NTFY_TOPIC` avec ce même mot.
 
-Le seuil vaut 3 par défaut. Pour le changer, ajoute une *variable* (pas un
-secret) nommée `SEUIL_ALERTE`, par exemple `3.5`.
+Seuils, en *variables* du dépôt (pas en secrets) : `SEUIL_ALERTE` pour le surf
+et `SEUIL_ALERTE_WING` pour la wing, 3 par défaut tous les deux.
 
-Sans le secret, l'étape est simplement ignorée : le reste du workflow
-fonctionne normalement.
+`alerter.py` raisonne par meilleure session de chaque jour, et envoie quatre
+sortes de lignes :
 
-`alerter.py` retient dans `etat_alertes.json` les créneaux déjà annoncés.
-Sans cette mémoire, le même bon créneau te serait signalé huit fois par jour.
-Un créneau n'est annoncé qu'une fois, et seulement s'il est encore à venir.
-Pour voir ce qui partirait sans rien envoyer ni rien mémoriser :
+- **NOUVEAU** — une journée passe au-dessus du seuil ;
+- **MIEUX** — une session déjà annoncée gagne au moins 0,75 point ;
+- **ANNULÉ** — une session annoncée retombe nettement sous le seuil ;
+- **MAINTENANT** — une bonne session commence dans les trois heures, compte
+  tenu du trajet (`trajet_min`). Celle-ci sonne en priorité haute.
+
+Il retient ce qui a déjà été annoncé dans `etat_alertes.json`, pour ne pas
+répéter la même alerte huit fois par jour. Sans le secret `NTFY_TOPIC`,
+l'étape est simplement ignorée. Pour voir ce qui partirait sans rien envoyer
+ni rien mémoriser :
 
 ```
-python3 alerter.py --seuil 3 --essai
+python3 alerter.py --seuil 3 --seuil-wing 3 --essai
 ```
 
 ### Par courriel plutôt que par notification

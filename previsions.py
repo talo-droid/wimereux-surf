@@ -71,12 +71,9 @@ def maintenant():
 # ==========================================================================
 #
 # Chaque spot a sa propre bouée de référence, sa fenêtre de houle, son
-# optimum de marée et sa table de fetch. Wimereux regarde l'ouest-nord-ouest
-# et marche sur la houle d'ouest-sud-ouest ; Calais regarde le nord et marche
-# sur la houle de nord, au montant avant la pleine mer.
-#
-# fetch_km : fetch approximatif en kilomètres selon la direction D'OÙ vient
-# le vent. À affiner sur une carte — c'est la donnée la plus grossière ici.
+# optimum de marée, son orientation et son barème. Wimereux regarde
+# l'ouest-nord-ouest et marche sur la houle d'ouest-sud-ouest ; Calais regarde
+# le nord et marche sur la houle de nord, au montant avant la pleine mer.
 
 SPOTS = {
     "wimereux": {
@@ -92,21 +89,30 @@ SPOTS = {
         "point_vent": (50.7700, 1.5800),
         "point_courant": (50.79, 1.55),
         "site_maree": os.environ.get("SITE_MAREE_WIMEREUX", "boulogne-sur-mer"),
-        # Fenêtre de direction de houle : hors de là, la note tombe à zéro.
+        # Fenêtre de direction de houle. Au-delà, la note décroît sur
+        # "marge_direction" degrés au lieu de tomber d'un coup à zéro.
         "direction_houle": (200.0, 270.0),
+        "marge_direction": 15.0,
         # Optimum de marée, en heures par rapport à la pleine mer.
         # Positif = après la PM.
         "pic_maree_h": 1.0,
-        # La terre est à l'est : offshore de l'est-sud-est au sud-sud-ouest.
-        "secteur_favorable": (110.0, 225.0),
-        "secteur_travers": [(80.0, 110.0), (225.0, 260.0)],
+        # Axe de vent idéal pour le SURF, issu de ton expérience : le vent de
+        # sud y est bon. C'est le centre de l'ancien secteur favorable.
+        "axe_offshore_surf": 167.0,
+        # Direction vers laquelle la plage regarde, c'est-à-dire vers le large.
+        # Sert à la WING, où compte la géométrie réelle : un vent qui vient de
+        # la direction opposée pousse vers le large. Estimation à vérifier.
+        "face_plage": 285.0,
+        # Temps pour être à l'eau depuis chez toi, en minutes.
+        "trajet_min": 0,
+        # Barème de houle propre au spot.
+        "seuils_houle": {
+            "h_nulle": 0.50, "h_min": 0.70, "h_pleine": 1.00,
+            "t_min": 5.5, "t_pleine": 7.5,
+            "xi_mou": 0.15, "xi_franc": 0.32,
+        },
         "pente_haute": 0.035,
         "pente_basse": 0.010,
-        "fetch_km": {
-            0: 300, 22: 250, 45: 150, 67: 40, 90: 3, 112: 3, 135: 3, 157: 20,
-            180: 85, 202: 180, 225: 400, 247: 500, 270: 90, 292: 80,
-            315: 90, 337: 180,
-        },
         # Liens affichés en haut de la page, pour vérifier la prévision
         # contre la mesure et contre l'œil.
         "liens": {
@@ -128,18 +134,22 @@ SPOTS = {
         # La plage regarde le nord : fenêtre à cheval sur 0°, du nord-ouest
         # au nord-est.
         "direction_houle": (300.0, 60.0),
+        "marge_direction": 15.0,
         # Marche au montant, avant la pleine mer.
         "pic_maree_h": -1.5,
-        # La terre est au sud : offshore du sud-est au sud-ouest.
-        "secteur_favorable": (135.0, 225.0),
-        "secteur_travers": [(100.0, 135.0), (225.0, 260.0)],
+        "axe_offshore_surf": 180.0,
+        "face_plage": 350.0,
+        "trajet_min": 35,
+        # La houle de nord en mer du Nord est courte par nature : avec les
+        # seuils de Wimereux, Calais serait sous-noté par construction.
+        # Période décalée d'une seconde, point de départ à valider au journal.
+        "seuils_houle": {
+            "h_nulle": 0.50, "h_min": 0.70, "h_pleine": 1.00,
+            "t_min": 4.5, "t_pleine": 6.5,
+            "xi_mou": 0.15, "xi_franc": 0.32,
+        },
         "pente_haute": 0.035,
         "pente_basse": 0.010,
-        "fetch_km": {
-            0: 300, 22: 250, 45: 200, 67: 120, 90: 80, 112: 10, 135: 3,
-            157: 3, 180: 3, 202: 3, 225: 5, 247: 25, 270: 35, 292: 90,
-            315: 150, 337: 250,
-        },
         "liens": {
             "bouee": "https://www.ndbc.noaa.gov/station_page.php"
                      "?station=62304&uom=M&tz=STN",
@@ -153,40 +163,19 @@ SPOTS = {
 FUSEAU = "Europe/Paris"
 CLE_MAREE = os.environ.get("API_MAREE_KEY", "")
 
-# --- Houle : barème commun aux deux spots --------------------------------
-# Hauteur : montée progressive plutôt qu'un palier. En dessous du minimum la
-# note de houle est nulle (pas surfable) ; entre les deux bornes les 3 points
-# de hauteur s'acquièrent linéairement ; au-dessus ils sont pleins.
-# Un palier faisait basculer 3 points sur deux centimètres, bien en deçà de la
-# précision du modèle.
-HAUTEUR_NULLE_M = 0.50     # en dessous : rien à surfer, note 0
-HAUTEUR_MIN_M = 0.70       # début des points de hauteur
-HAUTEUR_PLEINE_M = 1.00    # les 3 points de hauteur sont acquis
-POINTS_HAUTEUR_MAX = 3.0
-# Entre HAUTEUR_NULLE_M et HAUTEUR_MIN_M, toute la note de houle est atténuée
-# progressivement, pour qu'aucune marche brutale ne subsiste au bas du barème.
-SEUIL_TPEAK_1 = 6.0
-SEUIL_TPEAK_2 = 7.0
+# --- Houle ----------------------------------------------------------------
+# Le barème lui-même est dans SPOTS["…"]["seuils_houle"].
 CALIBRATION_HOULE = 1.0
-
-# --- Nombre d'Iribarren ---------------------------------------------------
-# Battjes place la limite glissant/plongeant à 0,5. Sur ces plages
-# dissipatives xi reste presque toujours en dessous : les seuils ci-dessous
-# sont RELATIFS au site, pas les seuils universels.
-XI_MOU = 0.15
-XI_FRANC = 0.32
 
 # --- Vitesse de translation de la marée, en mètres par minute ------------
 TRANSLATION_LENTE = 0.6
 TRANSLATION_RAPIDE = 2.2
 
-# --- Amplitude de marée relative (RTR) -----------------------------------
-RTR_NEUTRE = 8.0
-RTR_SEVERE = 20.0
-PENALITE_RTR_MAX = 0.25
+# --- Amplitude de marée relative (RTR) : affichée, n'entre plus dans la note.
+# Elle dépend du coefficient, comme la vitesse de translation : la garder
+# dans la note pénalisait deux fois la même cause.
 
 # --- Vent -----------------------------------------------------------------
-SEUIL_RAFALES_KT = 10.0
 
 # Modèles de vent à haute résolution, du préféré au moins préféré. Les deux
 # ne couvrent qu'environ deux jours ; au-delà, on relaie sur les suivants.
@@ -226,9 +215,17 @@ NIVEAUX_ORAGE = ["nul", "faible", "modéré", "élevé"]
 ORAGE_VETO = "élevé"
 ORAGE_PLAFOND_NOTE = 2.5
 
-# --- Note globale ---------------------------------------------------------
-POIDS = {"houle": 0.50, "vent": 0.30, "maree": 0.20}
+# --- Notes globales : moyennes géométriques --------------------------------
+# Un critère très mauvais tire fortement la note vers le bas, et un zéro
+# donne zéro. Ce principe remplace les anciens plafonds et vétos de confort.
+POIDS_SURF = {"houle": 0.50, "vent": 0.30, "maree": 0.20}
 POIDS_MAREE = {"position": 0.6, "stabilite": 0.4}
+POIDS_WING = {"force": 0.40, "rafales": 0.20, "maree": 0.25, "mer": 0.15}
+
+# --- Session ---------------------------------------------------------------
+# On surfe des sessions, pas des heures : la note de session est la moyenne
+# de deux heures consécutives de jour.
+DUREE_SESSION_H = 2
 
 G = 9.81
 
@@ -283,94 +280,31 @@ def iribarren(hauteur_m, periode_s, pente) -> float:
     return round(pente / math.sqrt(cambrure), 3)
 
 
-def fetch_pour(sp, direction_deg: float) -> float:
-    """Fetch en mètres pour la direction d'où vient le vent, interpolé."""
-    table = sp["fetch_km"]
-    d = direction_deg % 360
-    cles = sorted(table)
-    for i, c in enumerate(cles):
-        if d < c:
-            c0, c1 = cles[i - 1], c
-            break
-    else:
-        c0, c1 = cles[-1], cles[0] + 360
-    f0, f1 = table[c0 % 360], table[c1 % 360]
-    t = (d - c0) / max(1e-6, (c1 - c0))
-    return (f0 + (f1 - f0) * t) * 1000.0
-
-
-def mer_levee_localement(sp, vitesse_kt, direction_deg):
-    """
-    Hauteur et période que le vent local peut produire, d'après les lois de
-    croissance JONSWAP en fetch limité :
-        g Hs / U² = 0.0016 (g F / U²)^0.5
-        g Tp / U  = 0.286  (g F / U²)^(1/3)
-    Sert de référence : si la mer observée ne dépasse pas ces valeurs, elle
-    s'explique entièrement par le vent du moment, sans houle venue d'ailleurs.
-    """
-    if not vitesse_kt or vitesse_kt <= 0:
-        return 0.0, 0.0
-    U = vitesse_kt * 0.514444
-    F = fetch_pour(sp, direction_deg)
-    if F <= 0:
-        return 0.0, 0.0
-    F_adim = G * F / U ** 2
-    hs = 0.0016 * math.sqrt(F_adim) * U ** 2 / G
-    tp = 0.286 * F_adim ** (1 / 3) * U / G
-    return round(hs, 2), round(tp, 1)
-
-
 # ==========================================================================
 # NOTATION
 # ==========================================================================
 
-def score_houle(sp, hauteur_m, tpeak_s, direction_deg, xi=None, mer_locale=False):
-    """
-    Barème de base : jusqu'à 3 points de hauteur, acquis progressivement
-    entre HAUTEUR_MIN_M et HAUTEUR_PLEINE_M, plus 1 point si Tpeak dépasse
-    6 s ou 2 points au-delà de 7 s. La direction est un véto ; une hauteur
-    sous HAUTEUR_NULLE_M en est un second, et la zone juste au-dessus est
-    atténuée pour que la note monte sans à-coup.
+# ---------- Outils ----------
 
-    Puis deux corrections :
-      - mer entièrement explicable par le vent local : -1 (du clapot, pas
-        de la houle, même à hauteur correcte) ;
-      - déferlement franc (Iribarren élevé) : +1 ; mer molle : -1.
-    """
-    if hauteur_m is None or tpeak_s is None or direction_deg is None:
-        return 0
+def _interp(x, points):
+    """Interpolation linéaire par morceaux sur une liste de (x, y) triée."""
+    if x is None:
+        return None
+    if x <= points[0][0]:
+        return points[0][1]
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        if x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return points[-1][1]
 
-    # _dans_secteur gère la fenêtre à cheval sur 0°, comme celle de Calais.
-    if not _dans_secteur(direction_deg, *sp["direction_houle"]):
-        return 0
 
-    hs = hauteur_m * CALIBRATION_HOULE
-    if hs <= HAUTEUR_NULLE_M:
-        return 0.0        # rien à surfer, quelle que soit la période
+def _borne(x, bas=0.0, haut=1.0):
+    return max(bas, min(haut, x))
 
-    rampe = (hs - HAUTEUR_MIN_M) / (HAUTEUR_PLEINE_M - HAUTEUR_MIN_M)
-    points = POINTS_HAUTEUR_MAX * max(0.0, min(1.0, rampe))
 
-    if tpeak_s > SEUIL_TPEAK_2:
-        points += 2
-    elif tpeak_s > SEUIL_TPEAK_1:
-        points += 1
-
-    if mer_locale:
-        points -= 1
-    if xi is not None:
-        if xi >= XI_FRANC:
-            points += 1
-        elif xi < XI_MOU:
-            points -= 1
-
-    points = max(0.0, min(points, 5.0))
-
-    # Atténuation dans la zone basse, pour éviter une marche à HAUTEUR_MIN_M.
-    if hs < HAUTEUR_MIN_M:
-        points *= (hs - HAUTEUR_NULLE_M) / (HAUTEUR_MIN_M - HAUTEUR_NULLE_M)
-
-    return round(points, 2)
+def _ecart_angle(a, b) -> float:
+    """Écart entre deux directions, entre 0 et 180°."""
+    return abs((a - b + 180) % 360 - 180)
 
 
 def _dans_secteur(direction, debut, fin) -> bool:
@@ -380,43 +314,114 @@ def _dans_secteur(direction, debut, fin) -> bool:
     return direction >= debut or direction <= fin
 
 
+def moyenne_geometrique(notes: dict, poids: dict) -> float:
+    """
+    Moyenne géométrique pondérée de notes sur 5. Contrairement à la moyenne
+    arithmétique, un critère mauvais n'est pas compensé par les autres : la
+    qualité d'une session est limitée par son facteur le plus faible.
+    """
+    total = sum(poids.values())
+    log = 0.0
+    for cle, w in poids.items():
+        n = notes[cle]
+        if n is None or n <= 0:
+            return 0.0
+        log += (w / total) * math.log(n / 5.0)
+    return round(5.0 * math.exp(log), 2)
+
+
+# ---------- Surf : houle ----------
+
+def facteur_direction(sp, direction_deg) -> float:
+    """1 dans la fenêtre, puis décroissance linéaire sur la marge."""
+    if direction_deg is None:
+        return 0.0
+    debut, fin = sp["direction_houle"]
+    if _dans_secteur(direction_deg, debut, fin):
+        return 1.0
+    d = min(_ecart_angle(direction_deg, debut), _ecart_angle(direction_deg, fin))
+    return round(_borne(1 - d / sp["marge_direction"]), 3)
+
+
+def part_houle_longue(hauteur_m, houle_longue_m):
+    """
+    Part de l'énergie portée par la houle longue, entre 0 et 1. L'énergie
+    variant comme le carré de la hauteur, on compare des carrés. Mesurée au
+    même point que la mer totale, contrairement à l'ancien test de fetch qui
+    mélangeait la mer de Hastings et le vent de Wimereux.
+    """
+    if not hauteur_m or houle_longue_m is None:
+        return None
+    return round(_borne((houle_longue_m / hauteur_m) ** 2), 2)
+
+
+def score_houle(sp, hauteur_m, tpeak_s, direction_deg, xi=None, part_houle=None):
+    """
+    Barème continu, sans marche :
+      - hauteur : jusqu'à 3 points entre h_min et h_pleine ;
+      - période : jusqu'à 2 points entre t_min et t_pleine ;
+      - déferlement (Iribarren) : de -0,5 à +0,5 ;
+      - part de houle longue : de -0,5 à +0,5 ;
+    le tout atténué sous h_min, et multiplié par le facteur de direction.
+    """
+    if hauteur_m is None or tpeak_s is None:
+        return 0.0
+    s = sp["seuils_houle"]
+    f_dir = facteur_direction(sp, direction_deg)
+    hs = hauteur_m * CALIBRATION_HOULE
+    if f_dir == 0 or hs <= s["h_nulle"]:
+        return 0.0
+
+    points = (3.0 * _borne((hs - s["h_min"]) / (s["h_pleine"] - s["h_min"]))
+              + 2.0 * _borne((tpeak_s - s["t_min"]) / (s["t_pleine"] - s["t_min"])))
+    if xi is not None:
+        points += _borne(-0.5 + (xi - s["xi_mou"]) / (s["xi_franc"] - s["xi_mou"]),
+                         -0.5, 0.5)
+    if part_houle is not None:
+        points += _borne(-0.5 + (part_houle - 0.1) / 0.5, -0.5, 0.5)
+    points = _borne(points, 0.0, 5.0)
+
+    if hs < s["h_min"]:
+        points *= (hs - s["h_nulle"]) / (s["h_min"] - s["h_nulle"])
+    return round(points * f_dir, 2)
+
+
+# ---------- Surf : vent ----------
+
+# Note de vent selon la force, pour un vent parfaitement offshore et pour un
+# vent plein onshore. Entre les deux, on passe continûment selon l'angle.
+VENT_OFFSHORE = [(0, 5), (9, 5), (12, 3), (16, 3), (20, 2), (25, 1), (40, 1)]
+VENT_ONSHORE = [(0, 5), (4, 5), (9, 2), (13, 1), (18, 0.5), (40, 0.5)]
+
+
 def categorie_vent(sp, direction_deg: float) -> str:
-    if _dans_secteur(direction_deg, *sp["secteur_favorable"]):
+    theta = _ecart_angle(direction_deg or 0, sp["axe_offshore_surf"])
+    if theta < 60:
         return "offshore"
-    for debut, fin in sp["secteur_travers"]:
-        if _dans_secteur(direction_deg, debut, fin):
-            return "travers"
+    if theta < 105:
+        return "travers"
     return "onshore"
 
 
-def score_vent(sp, vitesse_kt, direction_deg, rafales_kt=None) -> int:
+def score_vent(sp, vitesse_kt, direction_deg, rafales_kt=None) -> float:
     """
-        vitesse      offshore   travers   onshore
-        < 5 nds         5          5         5
-        5-10 nds        5          3         2
-        10-15 nds       3          2         1
-        15-20 nds       2          1         1
-        > 20 nds        1          1         1
-    Puis -1 si les rafales dépassent la moyenne de plus de 10 nds.
+    Le vent est projeté sur l'axe de la plage : plus il est offshore, plus on
+    se rapproche de la courbe offshore. Plus de secteurs aux frontières
+    franches, plus de marche à 10 nœuds de rafales.
     """
     if vitesse_kt is None or direction_deg is None:
-        return 1
-    if vitesse_kt < 5:
-        note = 5
-    else:
-        cat = categorie_vent(sp, direction_deg)
-        if vitesse_kt < 10:
-            note = {"offshore": 5, "travers": 3, "onshore": 2}[cat]
-        elif vitesse_kt <= 15:
-            note = {"offshore": 3, "travers": 2, "onshore": 1}[cat]
-        elif vitesse_kt <= 20:
-            note = {"offshore": 2, "travers": 1, "onshore": 1}[cat]
-        else:
-            note = 1
-    if rafales_kt is not None and rafales_kt - vitesse_kt > SEUIL_RAFALES_KT:
-        note -= 1
-    return max(1, min(note, 5))
+        return 1.0
+    theta = math.radians(_ecart_angle(direction_deg, sp["axe_offshore_surf"]))
+    poids = ((1 + math.cos(theta)) / 2) ** 2
+    bas = _interp(vitesse_kt, VENT_ONSHORE)
+    haut = _interp(vitesse_kt, VENT_OFFSHORE)
+    note = bas + (haut - bas) * poids
+    if rafales_kt is not None:
+        note -= _borne((rafales_kt - vitesse_kt - 6) / 6, 0.0, 1.5)
+    return round(_borne(note, 0.5, 5.0), 2)
 
+
+# ---------- Surf : marée ----------
 
 ANCRAGES_MAREE = [(-1.0, 1.0), (-0.5, 3.0), (0.5, 3.0), (1.0, 1.0)]
 
@@ -429,18 +434,9 @@ def score_position_maree(sp, heures_depuis_pm, duree_demi_cycle_h=6.2) -> float:
     """
     if duree_demi_cycle_h <= 0:
         return 1.0
-    x = max(-1.0, min(1.0, heures_depuis_pm / duree_demi_cycle_h))
-    pic = sp["pic_maree_h"] / duree_demi_cycle_h
-    fraction_pic = max(-0.45, min(0.45, pic))
-    ancrages = sorted(ANCRAGES_MAREE + [(fraction_pic, 5.0)])
-    xs = [a for a, _ in ancrages]
-    ys = [b for _, b in ancrages]
-    if x <= xs[0]:
-        return ys[0]
-    if x >= xs[-1]:
-        return ys[-1]
-    i = bisect_left(xs, x)
-    return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1])
+    x = _borne(heures_depuis_pm / duree_demi_cycle_h, -1.0, 1.0)
+    pic = _borne(sp["pic_maree_h"] / duree_demi_cycle_h, -0.45, 0.45)
+    return round(_interp(x, sorted(ANCRAGES_MAREE + [(pic, 5.0)])), 2)
 
 
 def translation_m_min(dh_dt_m_h, pente) -> float:
@@ -457,53 +453,100 @@ def translation_m_min(dh_dt_m_h, pente) -> float:
 
 def score_stabilite(vitesse_m_min: float) -> float:
     """5 quand la zone de surf stationne, 1 quand elle balaie le profil."""
-    if vitesse_m_min <= TRANSLATION_LENTE:
-        return 5.0
-    if vitesse_m_min >= TRANSLATION_RAPIDE:
-        return 1.0
-    t = (vitesse_m_min - TRANSLATION_LENTE) / (TRANSLATION_RAPIDE - TRANSLATION_LENTE)
-    return round(5.0 - 4.0 * t, 2)
+    return round(_interp(vitesse_m_min, [(TRANSLATION_LENTE, 5.0),
+                                         (TRANSLATION_RAPIDE, 1.0)]), 2)
 
 
 def score_maree(position: float, stabilite: float) -> float:
-    return round(position * POIDS_MAREE["position"]
-                 + stabilite * POIDS_MAREE["stabilite"], 2)
+    return moyenne_geometrique({"position": position, "stabilite": stabilite},
+                               POIDS_MAREE)
 
 
-def facteur_rtr(marnage_m, hauteur_m) -> float:
+def rapport_rtr(marnage_m, hauteur_m) -> float:
+    """RTR = marnage / hauteur : affiché pour contexte, hors de la note."""
+    if not marnage_m or not hauteur_m:
+        return 0.0
+    return round(marnage_m / hauteur_m, 1)
+
+
+def appliquer_orage(note: float, orage: str) -> float:
     """
-    RTR = marnage / hauteur de houle. Plus il est élevé, plus la plage est
-    dominée par la marée et moins la zone de surf se définit. Un même mètre
-    de houle ne vaut pas la même chose un jour de coefficient 40 et un jour
-    de coefficient 110.
-    """
-    if not marnage_m or not hauteur_m or hauteur_m <= 0:
-        return 1.0
-    rtr = marnage_m / hauteur_m
-    if rtr <= RTR_NEUTRE:
-        return 1.0
-    t = min(1.0, (rtr - RTR_NEUTRE) / (RTR_SEVERE - RTR_NEUTRE))
-    return round(1.0 - PENALITE_RTR_MAX * t, 3)
-
-
-def note_globale(houle, maree, vent, facteur=1.0, orage="nul") -> float:
-    """
-    Trois vétos, dans l'ordre : l'orage d'abord, parce que c'est le seul qui
-    relève de la sécurité et non du confort ; puis la houle nulle ; puis un
-    vent très défavorable, qui plafonne la note à vent + 1.
-    Le facteur RTR s'applique en dernier.
+    Le seul véto restant, parce qu'il relève de la sécurité et non du
+    confort : risque élevé, zéro ; risque modéré, plafond.
     """
     if orage == ORAGE_VETO:
         return 0.0
-    if houle == 0:
-        return 0.0
-    note = houle * POIDS["houle"] + vent * POIDS["vent"] + maree * POIDS["maree"]
-    if vent <= 2:
-        note = min(note, vent + 1)
-    note *= facteur
     if orage == "modéré":
-        note = min(note, ORAGE_PLAFOND_NOTE)
-    return round(note, 2)
+        return round(min(note, ORAGE_PLAFOND_NOTE), 2)
+    return note
+
+
+def note_surf(houle, maree, vent, orage="nul") -> float:
+    n = moyenne_geometrique({"houle": houle, "vent": vent, "maree": maree},
+                            POIDS_SURF)
+    return appliquer_orage(n, orage)
+
+
+# ---------- Wing ----------
+#
+# La wing a d'autres besoins que le surf : du vent, pas trop rafaleux, de
+# l'eau sur les bancs, et surtout PAS de vent qui pousse vers le large.
+# Les courbes ci-dessous sont un point de départ, pour une wing moyenne.
+
+WING_FORCE = [(0, 0), (9, 0), (11, 1), (13, 2.5), (15, 4.2), (17, 5), (24, 5),
+              (28, 3.8), (32, 2.2), (36, 0.8), (50, 0.3)]
+# Rafales rapportées au vent moyen.
+WING_RAFALES = [(1.0, 5), (1.2, 5), (1.35, 3.5), (1.5, 2), (1.7, 1), (2.0, 0.5)]
+# Écart entre le vent et l'axe offshore réel de la plage : 0° = vent qui
+# pousse droit vers le large. C'est un facteur de sécurité, pas de confort.
+WING_DIRECTION = [(0, 0.1), (45, 0.15), (70, 0.6), (90, 1.0), (145, 1.0), (180, 0.8)]
+# Niveau d'eau entre basse mer (0) et pleine mer (1) : à basse mer, les
+# bancs affleurent et l'aileron touche.
+WING_MAREE = [(0, 0.5), (0.25, 1.5), (0.45, 4), (0.6, 5), (1, 5)]
+# Hauteur de mer : au-delà, le shorebreak complique la mise à l'eau.
+WING_MER = [(0, 5), (1.2, 5), (1.8, 3.5), (2.5, 2), (3.2, 1), (5, 0.5)]
+
+
+def facteur_direction_wing(sp, direction_deg) -> float:
+    if direction_deg is None:
+        return 0.0
+    offshore = (sp["face_plage"] + 180) % 360
+    return round(_interp(_ecart_angle(direction_deg, offshore), WING_DIRECTION), 2)
+
+
+def score_wing(sp, vitesse_kt, rafales_kt, direction_deg, fraction_maree,
+               hauteur_m, orage="nul"):
+    """Renvoie (note, détail des sous-notes)."""
+    if vitesse_kt is None:
+        return 0.0, {}
+    detail = {
+        "force": round(_interp(vitesse_kt, WING_FORCE), 2),
+        "rafales": round(_interp((rafales_kt or vitesse_kt) / max(vitesse_kt, 1.0),
+                                 WING_RAFALES), 2),
+        "maree": round(_interp(fraction_maree, WING_MAREE), 2),
+        "mer": round(_interp(hauteur_m or 0.0, WING_MER), 2),
+        "direction": facteur_direction_wing(sp, direction_deg),
+    }
+    n = moyenne_geometrique(detail, POIDS_WING) * detail["direction"]
+    return appliquer_orage(round(n, 2), orage), detail
+
+
+# ---------- Fiabilité ----------
+
+FIABILITE_ECHEANCE = [(0, 1.0), (24, 1.0), (72, 0.75), (120, 0.55), (168, 0.45)]
+
+
+def fiabilite(echeance_h, ecart_vent_kt, ecart_houle_m) -> float:
+    """
+    Confiance qu'on peut accorder à la note, entre 0 et 1 : elle baisse avec
+    l'échéance, et quand les modèles ne s'accordent pas.
+    """
+    f = _interp(max(0.0, echeance_h), FIABILITE_ECHEANCE)
+    if ecart_vent_kt is not None and ecart_vent_kt >= ECART_VENT_ALERTE_KT:
+        f *= 0.85
+    if ecart_houle_m is not None and ecart_houle_m >= 0.3:
+        f *= 0.85
+    return round(f, 2)
 
 
 def risque_orage(code_meteo, cape, lifted_index) -> str:
@@ -910,30 +953,33 @@ def marnage_du_jour(cle_jour: str, extrema) -> float:
 @dataclass
 class Creneau:
     instant: datetime
+    # houle
     hauteur_m: float
     tpeak_s: float
     dir_houle: float
     ecart_modeles_m: float | None
     houle_longue_m: float | None
+    part_houle: float | None
     energie_kwm: float
     xi: float
     pente: float
-    mer_locale: bool
-    hs_fetch_m: float
-    tp_fetch_s: float
+    facteur_dir: float
+    # vent
     vitesse_kt: float
     dir_vent: float
     rafales_kt: float
     cat_vent: str
     modele_vent: str
     ecart_vent_kt: float | None
+    # marée
     heures_depuis_pm: float
     hauteur_eau_m: float | None
+    niveau_maree: float
     dh_dt_m_h: float
     translation_m_min: float
     marnage_m: float
     rtr: float
-    facteur_rtr: float
+    # courant, orage
     courant_kt: float | None
     courant_dir: float | None
     courant_effet: str
@@ -941,28 +987,57 @@ class Creneau:
     lifted_index: float | None
     proba_pluie: float | None
     risque_orage: str
+    # confiance
+    echeance_h: float
+    fiabilite: float
+    # notes surf
     note_houle: float
     note_position: float
     note_stabilite: float
     note_maree: float
-    note_vent: int
-    note_totale: float
+    note_vent: float
+    note_totale: float              # note surf, nom conservé pour le journal
+    # notes wing
+    note_wing: float
+    wing_detail: dict
+    # sessions de DUREE_SESSION_H heures commençant à cette heure
+    session_surf: float | None = None
+    session_wing: float | None = None
 
     def ligne(self) -> str:
-        def et(n):
+        def c(n):
             p = int(round(n))
-            return "★" * p + "☆" * (5 - p)
+            return "■" * p + "□" * (5 - p)
         return (
-            f"{self.instant:%d/%m %Hh}  {self.note_totale:4.2f}/5  |  "
-            f"houle {et(self.note_houle)} ({self.hauteur_m:.2f}m "
+            f"{self.instant:%d/%m %Hh}  surf {self.note_totale:4.2f}  "
+            f"wing {self.note_wing:4.2f}  |  "
+            f"houle {c(self.note_houle)} ({self.hauteur_m:.2f}m "
             f"{self.tpeak_s:.1f}s {self.dir_houle:.0f}° {self.energie_kwm:.0f}kJ "
-            f"xi{self.xi:.2f}{' loc' if self.mer_locale else ''})  "
-            f"marée {et(self.note_maree)} (PM{self.heures_depuis_pm:+.1f}h "
-            f"{self.translation_m_min:.1f}m/min)  "
-            f"vent {et(self.note_vent)} ({self.vitesse_kt:.0f}kt "
-            f"{self.dir_vent:.0f}° {self.cat_vent})"
-            + (f"  ⚡ ORAGE {self.risque_orage}"
+            f"xi{self.xi:.2f})  "
+            f"marée {c(self.note_maree)} (PM{self.heures_depuis_pm:+.1f}h)  "
+            f"vent {c(self.note_vent)} ({self.vitesse_kt:.0f}/{self.rafales_kt:.0f}kt "
+            f"{self.dir_vent:.0f}° {self.cat_vent})  fiab {self.fiabilite:.2f}"
+            + (f"  ORAGE {self.risque_orage}"
                if self.risque_orage in ("modéré", "élevé") else ""))
+
+
+def calculer_sessions(creneaux) -> None:
+    """
+    Note de session : moyenne des DUREE_SESSION_H heures consécutives
+    commençant à chaque créneau. Nulle si l'une d'elles est sous le véto
+    orage, absente si la fenêtre sort du jour.
+    """
+    index = {c.instant: c for c in creneaux}
+    for c in creneaux:
+        fenetre = [index.get(c.instant + timedelta(hours=k))
+                   for k in range(DUREE_SESSION_H)]
+        if any(x is None for x in fenetre):
+            continue
+        if any(x.risque_orage == ORAGE_VETO for x in fenetre):
+            c.session_surf = c.session_wing = 0.0
+            continue
+        c.session_surf = round(sum(x.note_totale for x in fenetre) / len(fenetre), 2)
+        c.session_wing = round(sum(x.note_wing for x in fenetre) / len(fenetre), 2)
 
 
 def construire_creneaux(sp, heures: int):
@@ -976,8 +1051,7 @@ def construire_creneaux(sp, heures: int):
         return [], [], []
 
     # Risque orageux calculé sur TOUTES les heures, y compris la nuit, puis
-    # étendu aux heures voisines : la propagation doit voir les cellules qui
-    # arrivent avant le lever du jour ou après le coucher.
+    # étendu aux heures voisines.
     risques = propager_orage({
         t: risque_orage(vent[t].get("code_meteo"), vent[t].get("cape"),
                         vent[t].get("lifted_index"))
@@ -988,6 +1062,7 @@ def construire_creneaux(sp, heures: int):
     hauteurs = recuperer_hauteurs_eau(sp, instants[0] - timedelta(hours=1),
                                       instants[-1] + timedelta(hours=1))
     marnages = {}
+    reference = maintenant().replace(tzinfo=None)
 
     creneaux = []
     for instant in instants:
@@ -1007,37 +1082,36 @@ def construire_creneaux(sp, heures: int):
             marnages[cle_jour] = marnage_du_jour(cle_jour, extrema)
         marnage = marnages[cle_jour]
 
-        # Position dans le marnage, pour la pente locale
+        # Niveau dans le marnage du jour : 0 à basse mer, 1 à pleine mer.
         eau = hauteurs.get(instant)
         du_jour = [e["hauteur_m"] for e in extrema
                    if e["instant"].date().isoformat() == cle_jour
                    and e["hauteur_m"] is not None]
         if eau is not None and du_jour and max(du_jour) > min(du_jour):
-            fraction = (eau - min(du_jour)) / (max(du_jour) - min(du_jour))
+            niveau = _borne((eau - min(du_jour)) / (max(du_jour) - min(du_jour)))
         else:
-            fraction = 0.5
-        pente = pente_locale(sp, fraction)
+            niveau = 0.5
+        pente = pente_locale(sp, niveau)
 
         xi = iribarren(h["hauteur_m"], h["tpeak_s"], pente)
-        hs_f, tp_f = mer_levee_localement(sp, v["vitesse_kt"], v["direction_deg"])
-        locale = bool(h["hauteur_m"] and h["tpeak_s"] and tp_f
-                      and h["tpeak_s"] <= tp_f * 1.1
-                      and h["hauteur_m"] <= hs_f * 1.1)
-
+        part = part_houle_longue(h["hauteur_m"], h["houle_longue_m"])
         dh = derivee_hauteur(instant, hauteurs)
         trans = translation_m_min(dh, pente)
+        orage = risques.get(instant, "nul")
 
         n_houle = score_houle(sp, h["hauteur_m"], h["tpeak_s"], h["direction_deg"],
-                              xi=xi, mer_locale=locale)
+                              xi=xi, part_houle=part)
         n_pos = score_position_maree(sp, delta_pm, demi_cycle)
         n_stab = score_stabilite(trans)
         n_maree = score_maree(n_pos, n_stab)
         n_vent = score_vent(sp, v["vitesse_kt"], v["direction_deg"], v["rafales_kt"])
-        f_rtr = facteur_rtr(marnage, h["hauteur_m"])
-        orage = risques.get(instant, "nul")
+        n_wing, detail_wing = score_wing(sp, v["vitesse_kt"], v["rafales_kt"],
+                                         v["direction_deg"], niveau,
+                                         h["hauteur_m"], orage)
         libelle_courant, _ = effet_courant(c.get("vitesse_kt"),
                                            c.get("direction_deg"),
                                            h["direction_deg"] or 0)
+        echeance = (instant - reference).total_seconds() / 3600.0
 
         creneaux.append(Creneau(
             instant=instant,
@@ -1047,9 +1121,10 @@ def construire_creneaux(sp, heures: int):
             ecart_modeles_m=h["ecart_modeles_m"],
             houle_longue_m=(round(h["houle_longue_m"], 2)
                             if h["houle_longue_m"] is not None else None),
+            part_houle=part,
             energie_kwm=energie_houle(h["hauteur_m"], h["tpeak_s"]),
-            xi=xi, pente=round(pente, 4), mer_locale=locale,
-            hs_fetch_m=hs_f, tp_fetch_s=tp_f,
+            xi=xi, pente=round(pente, 4),
+            facteur_dir=facteur_direction(sp, h["direction_deg"]),
             vitesse_kt=round(v["vitesse_kt"] or 0.0, 1),
             dir_vent=round(v["direction_deg"] or 0.0),
             rafales_kt=round(v["rafales_kt"] or 0.0, 1),
@@ -1058,19 +1133,22 @@ def construire_creneaux(sp, heures: int):
             ecart_vent_kt=v.get("ecart_vent_kt"),
             heures_depuis_pm=round(delta_pm, 2),
             hauteur_eau_m=round(eau, 2) if eau is not None else None,
+            niveau_maree=round(niveau, 2),
             dh_dt_m_h=round(dh, 2), translation_m_min=trans,
-            marnage_m=marnage,
-            rtr=round(marnage / h["hauteur_m"], 1) if h["hauteur_m"] else 0.0,
-            facteur_rtr=f_rtr,
+            marnage_m=marnage, rtr=rapport_rtr(marnage, h["hauteur_m"]),
             courant_kt=c.get("vitesse_kt"), courant_dir=c.get("direction_deg"),
             courant_effet=libelle_courant,
             cape=v.get("cape"), lifted_index=v.get("lifted_index"),
             proba_pluie=v.get("proba_pluie"), risque_orage=orage,
-            note_houle=n_houle, note_position=round(n_pos, 2),
-            note_stabilite=n_stab, note_maree=n_maree, note_vent=n_vent,
-            note_totale=note_globale(n_houle, n_maree, n_vent, f_rtr, orage),
+            echeance_h=round(echeance, 1),
+            fiabilite=fiabilite(echeance, v.get("ecart_vent_kt"), h["ecart_modeles_m"]),
+            note_houle=n_houle, note_position=n_pos, note_stabilite=n_stab,
+            note_maree=n_maree, note_vent=n_vent,
+            note_totale=note_surf(n_houle, n_maree, n_vent, orage),
+            note_wing=n_wing, wing_detail=detail_wing,
         ))
 
+    calculer_sessions(creneaux)
     return creneaux, extrema, resumer_journees(creneaux, extrema, soleil)
 
 
@@ -1091,7 +1169,17 @@ def resumer_journees(creneaux, extrema, soleil) -> list[dict]:
     for cle in sorted(par_jour):
         j = par_jour[cle]
         lever, coucher = soleil.get(cle, (None, None))
-        meilleur = max(j, key=lambda c: c.note_totale)
+
+        def meilleure(attr_session, attr_heure):
+            candidats = [c for c in j if getattr(c, attr_session) is not None]
+            if candidats:
+                m = max(candidats, key=lambda c: getattr(c, attr_session))
+                return m, getattr(m, attr_session)
+            m = max(j, key=lambda c: getattr(c, attr_heure))
+            return m, getattr(m, attr_heure)
+
+        m_surf, n_surf = meilleure("session_surf", "note_totale")
+        m_wing, n_wing = meilleure("session_wing", "note_wing")
         resumes.append({
             "date": cle,
             "lever": lever.strftime("%H:%M") if lever else None,
@@ -1106,12 +1194,16 @@ def resumer_journees(creneaux, extrema, soleil) -> list[dict]:
             "dir_houle": round(_direction_moyenne([c.dir_houle for c in j])),
             "energie_max_kwm": max(c.energie_kwm for c in j),
             "xi_max": max(c.xi for c in j),
+            "fiabilite": round(sum(c.fiabilite for c in j) / len(j), 2),
             "vent_kt": [min(c.vitesse_kt for c in j), max(c.vitesse_kt for c in j)],
             "rafales_max_kt": max(c.rafales_kt for c in j),
             "dir_vent": round(_direction_moyenne([c.dir_vent for c in j])),
-            "meilleure_heure": meilleur.instant.strftime("%H:%M"),
-            "meilleure_note": meilleur.note_totale,
-            "note_moyenne": round(sum(c.note_totale for c in j) / len(j), 2),
+            # Meilleure session de DUREE_SESSION_H heures, par discipline.
+            "meilleure_heure": m_surf.instant.strftime("%H:%M"),
+            "meilleure_note": n_surf,
+            "meilleure_heure_wing": m_wing.instant.strftime("%H:%M"),
+            "meilleure_note_wing": n_wing,
+            "duree_session_h": DUREE_SESSION_H,
             "orage_max": max((c.risque_orage for c in j),
                              key=lambda n: NIVEAUX_ORAGE.index(n)),
             "heures_orage": [c.instant.strftime("%H:%M") for c in j
@@ -1139,6 +1231,8 @@ def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None) ->
                 "bouee": SPOTS[cle]["bouee"],
                 "site_maree": SPOTS[cle]["site_maree"],
                 "pic_maree_h": SPOTS[cle]["pic_maree_h"],
+                "trajet_min": SPOTS[cle].get("trajet_min", 0),
+                "duree_session_h": DUREE_SESSION_H,
                 "liens": SPOTS[cle].get("liens", {}),
                 "erreur": (erreurs or {}).get(cle),
                 "creneaux": [{**asdict(c), "instant": c.instant.isoformat()}
@@ -1175,7 +1269,7 @@ def ecrire_journal(cle_spot: str, creneaux, chemin: Path) -> None:
 
 def afficher_console(cle_spot, creneaux, resumes, min_note):
     sp = SPOTS[cle_spot]
-    aff = [c for c in creneaux if c.note_totale >= min_note]
+    aff = [c for c in creneaux if max(c.note_totale, c.note_wing) >= min_note]
     pic = sp["pic_maree_h"]
     quand = (f"PM{pic:+.1f}h" if pic else "à la pleine mer")
     print(f"\n{'=' * 78}")
@@ -1203,8 +1297,8 @@ def afficher_console(cle_spot, creneaux, resumes, min_note):
                       f"{r['tpeak_s'][0]:.1f}-{r['tpeak_s'][1]:.1f}s "
                       f"{r['dir_houle']}° {r['energie_max_kwm']:.0f}kJ max"
                       f"  |  vent {r['vent_kt'][0]:.0f}-{r['vent_kt'][1]:.0f}kt"
-                      f"  |  meilleur {r['meilleure_heure']} "
-                      f"({r['meilleure_note']}/5)")
+                      f"  |  surf {r['meilleure_heure']} ({r['meilleure_note']})"
+                      f"  wing {r['meilleure_heure_wing']} ({r['meilleure_note_wing']})")
                 if r.get("orage_max") in ("modéré", "élevé"):
                     heures = ", ".join(r["heures_orage"]) or ""
                     print(f"  /!\\  RISQUE D'ORAGE {r['orage_max'].upper()}"
@@ -1213,9 +1307,13 @@ def afficher_console(cle_spot, creneaux, resumes, min_note):
         print("  " + c.ligne())
 
     if aff:
-        best = max(aff, key=lambda c: c.note_totale)
-        print(f"\n  Meilleur : {date_fr(best.instant)} à "
-              f"{best.instant:%Hh} ({best.note_totale}/5)")
+        for disc, attr in (("surf", "session_surf"), ("wing", "session_wing")):
+            sess = [c for c in aff if getattr(c, attr) is not None]
+            if sess:
+                b = max(sess, key=lambda c: getattr(c, attr))
+                print(f"\n  Meilleure session {disc} : {date_fr(b.instant)} "
+                      f"{b.instant:%Hh}-{(b.instant + timedelta(hours=DUREE_SESSION_H)):%Hh} "
+                      f"({getattr(b, attr)}/5)")
     else:
         print("\n  Rien de notable sur la période.")
 
@@ -1265,16 +1363,17 @@ def main() -> int:
         afficher_console(cle, r["creneaux"], r["journees"], args.min_note)
 
     # Lequel des deux vaut le déplacement ?
-    meilleurs = []
-    for cle, r in resultats.items():
-        if r["creneaux"]:
-            b = max(r["creneaux"], key=lambda c: c.note_totale)
-            meilleurs.append((b.note_totale, SPOTS[cle]["nom"], b.instant))
-    if len(meilleurs) > 1:
-        meilleurs.sort(reverse=True)
+    if len(resultats) > 1:
         print(f"\n{'=' * 78}")
-        for note, nom, quand in meilleurs:
-            print(f"  {nom:12s} {note:4.2f}/5  {date_fr(quand)} à {quand:%Hh}")
+        for disc, attr in (("surf", "session_surf"), ("wing", "session_wing")):
+            lignes = []
+            for cle, r in resultats.items():
+                sess = [c for c in r["creneaux"] if getattr(c, attr) is not None]
+                if sess:
+                    b = max(sess, key=lambda c: getattr(c, attr))
+                    lignes.append((getattr(b, attr), SPOTS[cle]["nom"], b.instant))
+            for note, nom, quand in sorted(lignes, reverse=True):
+                print(f"  {disc:5s} {nom:10s} {note:4.2f}/5  {date_fr(quand)} à {quand:%Hh}")
         print()
 
     return 0

@@ -77,22 +77,29 @@
   }
   .carte-spot[aria-pressed="true"] { background: var(--craie); }
   .carte-spot:focus-visible { outline: 2px solid var(--ardoise); outline-offset: 2px; }
-  /* Le mât : remplissage proportionnel à la note, couleur de l'échelle. */
+  /* Deux mâts côte à côte : surf à gauche, wing à droite. Remplissage
+     proportionnel à la meilleure session, couleur de l'échelle. */
+  .carte-spot .mats { display: flex; gap: 3px; flex: none; align-self: stretch; }
   .carte-spot .mat {
-    width: 6px; flex: none; align-self: stretch;
-    background: var(--trait); position: relative;
+    width: 6px; align-self: stretch; background: var(--trait); position: relative;
   }
   .carte-spot .mat i { position: absolute; left: 0; right: 0; bottom: 0; display: block; }
-  .carte-spot .corps { min-width: 0; }
+  .carte-spot .corps { min-width: 0; flex: 1; }
   .carte-spot .nom {
     font-family: Fraunces, Georgia, serif; font-size: 1.05rem;
-    display: block; line-height: 1.15; color: var(--galet);
+    display: block; line-height: 1.15; color: var(--galet); margin-bottom: 0.15rem;
   }
   .carte-spot[aria-pressed="true"] .nom { color: var(--ardoise); }
-  .carte-spot .val {
-    font-family: Fraunces, Georgia, serif; font-size: 1.6rem; line-height: 1.05;
-    display: block; font-variant-numeric: tabular-nums;
+  .carte-spot .disc {
+    display: flex; align-items: baseline; gap: 0.35rem;
+    font-size: 0.76rem; color: var(--galet); line-height: 1.35;
+    white-space: nowrap; overflow: hidden;
   }
+  .carte-spot .disc b {
+    font-family: Fraunces, Georgia, serif; font-size: 1.15rem; font-weight: 400;
+    font-variant-numeric: tabular-nums; min-width: 1.7rem;
+  }
+  .carte-spot .disc .qui { width: 2rem; }
   .carte-spot .quand {
     font-size: 0.76rem; color: var(--galet); display: block;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -145,6 +152,8 @@
   tr.separe td, tr.separe th { border-top: 1px solid var(--trait); }
   .fleche { display: inline-block; font-size: 0.95rem; line-height: 1; }
   .colonne-top { background: #ffffff5c; }
+  /* Meilleure session wing du jour : un soulignement sous ses carrés. */
+  td.session-wing { box-shadow: inset 0 -3px 0 var(--ardoise); }
 
   .badge { display: block; margin: 0 auto; }
 
@@ -192,7 +201,7 @@
   .journal .corps { padding: 0 1rem 1.1rem; }
   .journal p { margin: 0 0 0.8rem; color: var(--galet); font-size: 0.85rem; }
   .champs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.7rem; }
-  .champs label { font-size: 0.78rem; color: var(--galet); display: block; }
+  .journal label { font-size: 0.78rem; color: var(--galet); display: block; }
   .journal select, .journal input {
     font: inherit; font-size: 0.9rem; padding: 0.3rem 0.4rem;
     background: var(--craie); color: var(--ardoise);
@@ -202,6 +211,7 @@
   .notes-choix { display: flex; gap: 0.3rem; }
   .notes-choix button {
     width: 2.1rem; height: 2.1rem; font: inherit; font-weight: 600;
+    border-radius: 6px;
     background: var(--craie); color: var(--galet);
     border: 1px solid var(--trait); cursor: pointer;
   }
@@ -327,19 +337,34 @@
 <main id="contenu"><p class="vide">Chargement des conditions…</p></main>
 
 <details class="journal" id="journal">
-  <summary>Noter une session</summary>
+  <summary>Noter une session ou une observation</summary>
   <div class="corps">
-    <p>Une ligne par sortie. C'est la seule donnée que le calcul ne peut pas
-      deviner, et celle qui permettra d'ajuster les seuils.</p>
+    <p>Deux notes séparées : les <b>conditions</b>, que le calcul prétend
+      prédire, et ta <b>session</b>, qui dépend aussi de la fatigue, du monde
+      ou du matériel. Les jours où tu n'y vas pas, un coup d'œil à la mer
+      suffit : note-le en observation. C'est ce qui révélera les bonnes
+      journées que le calcul a ratées.</p>
     <div class="champs">
       <div><label for="j-jour">jour</label><select id="j-jour"></select></div>
       <div><label for="j-heure">heure</label><select id="j-heure"></select></div>
       <div><label for="j-spot">spot</label><select id="j-spot"></select></div>
     </div>
     <div class="champs">
+      <div><label for="j-disc">discipline</label>
+        <select id="j-disc"><option value="surf">surf</option><option value="wing">wing</option></select></div>
+      <div><label for="j-type">type</label>
+        <select id="j-type"><option value="session">session</option><option value="observation">observation</option></select></div>
+    </div>
+    <div class="champs">
       <div style="flex:1">
-        <label>ta note</label>
-        <div class="notes-choix" id="j-note"></div>
+        <label>conditions</label>
+        <div class="notes-choix" id="j-cond"></div>
+      </div>
+    </div>
+    <div class="champs" id="j-bloc-sess">
+      <div style="flex:1">
+        <label>ta session</label>
+        <div class="notes-choix" id="j-sess"></div>
       </div>
     </div>
     <div>
@@ -360,9 +385,16 @@
   Données de marée fournies par <a href="https://api-maree.fr/">api-maree.fr</a>
   sous licence CC BY, calculées à partir de composantes harmoniques
   Ifremer / PREVIMER, elles-mêmes sous licence CC BY.
+  <br>Notes : moyennes géométriques, où un critère mauvais n'est pas
+  compensé par les autres. Surf : houle, vent, marée. Wing : force du vent,
+  rafales, niveau d'eau, état de la mer, et un facteur de sécurité qui
+  effondre la note quand le vent pousse vers le large. Les colonnes éclairées
+  marquent la meilleure session surf du jour, le soulignement la meilleure
+  session wing. Un carré pâle signale une prévision lointaine ou disputée.
   <br>Énergie : flux de puissance de la houle, 0,49 × Hs² × T, en kilojoules
   par seconde et par mètre de crête. ξ : nombre d'Iribarren, seuils calibrés
-  pour une plage dissipative. RTR : marnage rapporté à la hauteur de houle.
+  pour une plage dissipative. RTR : marnage rapporté à la hauteur de houle,
+  affiché pour contexte, hors de la note.
   Translation : vitesse de déplacement du bord de l'eau sur l'estran.
   Le courant est indicatif et n'entre pas dans la note.
   <br>Vent : moyenne d'AROME HD (Météo-France, 1,5 km) et d'UKV (Met Office,
@@ -410,29 +442,41 @@ function rose(deg) {
   return p[Math.round(deg / 22.5) % 16];
 }
 
-// Étoile portant sa note, colorée de rouge (1) à vert (5).
-const ETOILE = "M12 1.6l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.4l-6.2 3.2 1.2-6.8-5-4.9 6.9-1z";
-
-function etoile(note, taille) {
+// Carré arrondi portant sa note, coloré de rouge (1) à vert (5).
+// L'opacité traduit la fiabilité : une note lointaine ou disputée entre
+// modèles s'affiche plus pâle.
+function carre(note, taille, fiab = 1) {
   const n = Math.min(5, Math.round(note));
-  // Une note nulle vient d'un véto (pas de houle, mauvaise direction, orage).
-  // Elle se dessine en creux, pour ne pas se confondre avec un simple 1.
+  // Une note nulle vient d'un véto : elle se dessine en creux, pour ne pas
+  // se confondre avec un simple 1.
   const vide = n < 1;
+  const opacite = (0.35 + 0.65 * Math.max(0, Math.min(1, fiab))).toFixed(2);
   return `<svg class="badge" width="${taille}" height="${taille}" viewBox="0 0 24 24"
-       role="img" aria-label="note ${vide ? 0 : n} sur 5">
-    <path d="${ETOILE}" fill="${vide ? "none" : couleur(n)}"
+       role="img" aria-label="note ${vide ? 0 : n} sur 5" style="opacity:${opacite}">
+    <rect x="2" y="2" width="20" height="20" rx="5"
+          fill="${vide ? "none" : couleur(n)}"
           ${vide ? 'stroke="var(--trait)" stroke-width="1.6"' : ""}/>
-    <text x="12" y="14.6" text-anchor="middle" font-size="9.5" font-weight="700"
+    <text x="12" y="16.2" text-anchor="middle" font-size="11" font-weight="700"
           fill="${vide ? "var(--galet)" : "#fff"}"
           font-family="Barlow Semi Condensed, sans-serif">${vide ? 0 : n}</text>
   </svg>`;
 }
 
-// Pourquoi une note est nulle : la réponse est dans les vétos.
-function motifZero(c) {
+// Pourquoi une note est nulle, discipline par discipline.
+function motifZero(c, disc) {
   if (c.risque_orage === "élevé") return "orage";
+  if (disc === "wing") {
+    const w = c.wing_detail || {};
+    if ((w.force ?? 1) === 0) return "vent trop faible";
+    if ((w.direction ?? 1) <= 0.15) return "vent offshore : il pousse vers le large";
+    return "";
+  }
   if (c.note_houle === 0) return "houle insuffisante ou hors de la fenêtre de direction";
   return "";
+}
+
+function libelleFiabilite(f) {
+  return f >= 0.85 ? "fiable" : f >= 0.6 ? "fiabilité moyenne" : "fiabilité faible";
 }
 
 // La flèche pointe dans le sens où ça va, comme sur Windguru :
@@ -441,14 +485,27 @@ const fleche = deg => `<span class="fleche" style="transform:rotate(${(deg + 180
 
 let BORNES = [0, 1];
 
-function tableauJournee(creneaux, meilleurGlobal) {
+function meilleureSession(creneaux, attr) {
+  const c = creneaux.filter(x => x[attr] != null && x[attr] > 0)
+                    .sort((a, z) => z[attr] - a[attr])[0];
+  return c ? { debut: new Date(c.instant).getTime(), note: c[attr] } : null;
+}
+
+function tableauJournee(creneaux, dureeSession) {
   const cadre = el("div", "cadre");
   const t = el("table");
   const noteMax = Math.max(...creneaux.map(c => c.note_totale));
+  // Meilleure session du jour, sur dureeSession heures, pour chaque discipline.
+  const duree = (dureeSession || 2) * 3600e3;
+  const sSurf = meilleureSession(creneaux, "session_surf");
+  const sWing = meilleureSession(creneaux, "session_wing");
+  const dans = (s, c) => s && new Date(c.instant).getTime() >= s.debut
+                           && new Date(c.instant).getTime() < s.debut + duree;
 
   const lignes = [
     { cle: "heures", libelle: "" },
-    { cle: "note",   libelle: "note" },
+    { cle: "surf",   libelle: "surf" },
+    { cle: "wing",   libelle: "wing" },
     { cle: "orage",  libelle: "orage" },
     { cle: "hauteur", libelle: "houle m", sep: true },
     { cle: "periode", libelle: "période s" },
@@ -473,17 +530,21 @@ function tableauJournee(creneaux, meilleurGlobal) {
 
     creneaux.forEach((c, i) => {
       const cel = el(ligne.cle === "heures" ? "th" : "td");
-      if (c.instant === meilleurGlobal) cel.classList.add("colonne-top");
+      if (dans(sSurf, c)) cel.classList.add("colonne-top");
       const d = new Date(c.instant);
 
       switch (ligne.cle) {
         case "heures":
           cel.textContent = String(d.getHours()).padStart(2, "0");
           break;
-        case "note": {
-          cel.innerHTML = etoile(c.note_totale, 26);
-          const motif = c.note_totale === 0 ? motifZero(c) : "";
-          cel.title = motif ? `0 / 5 — ${motif}` : `${c.note_totale.toFixed(1)} / 5`;
+        case "surf":
+        case "wing": {
+          const n = ligne.cle === "surf" ? c.note_totale : c.note_wing;
+          cel.innerHTML = carre(n, 26, c.fiabilite ?? 1);
+          if (ligne.cle === "wing" && dans(sWing, c)) cel.classList.add("session-wing");
+          const motif = n === 0 ? motifZero(c, ligne.cle) : "";
+          cel.title = (motif ? `0 / 5 — ${motif}` : `${ligne.cle} ${n.toFixed(1)} / 5`)
+            + ` · ${libelleFiabilite(c.fiabilite ?? 1)}`;
           break;
         }
         case "hauteur":
@@ -579,7 +640,7 @@ function tableauJournee(creneaux, meilleurGlobal) {
           break;
         }
         case "phase":
-          cel.className = "niveau" + (c.instant === meilleurGlobal ? " colonne-top" : "");
+          cel.className = "niveau" + (dans(sSurf, c) ? " colonne-top" : "");
           cel.textContent = c.hauteur_eau_m === null || c.hauteur_eau_m === undefined
             ? "" : c.hauteur_eau_m.toFixed(1);
           break;
@@ -602,9 +663,12 @@ function apercuJournee(r) {
   p.innerHTML = `${marees || "—"} &nbsp;|&nbsp; jour ${r.lever}–${r.coucher}
     &nbsp;|&nbsp; marnage ${r.marnage_m} m · RTR <b>${r.rtr}</b>
     &nbsp;|&nbsp; jusqu'à <b>${Math.round(r.energie_max_kwm)} kJ</b>
-    &nbsp;|&nbsp; ${r.meilleure_note > 0
-      ? `meilleur <b>${r.meilleure_heure}</b>`
-      : `<b>aucun créneau</b>`}`;
+    &nbsp;|&nbsp; surf ${r.meilleure_note > 0
+      ? `<b>${r.meilleure_heure.slice(0, 2)}h</b> (${r.meilleure_note.toFixed(1)})`
+      : `<b>—</b>`}
+    · wing ${r.meilleure_note_wing > 0
+      ? `<b>${r.meilleure_heure_wing.slice(0, 2)}h</b> (${r.meilleure_note_wing.toFixed(1)})`
+      : `<b>—</b>`}`;
   p.title = r.rtr > 8
     ? "RTR élevé : la marée domine les vagues, la zone de surf se définit mal"
     : "RTR modéré : la plage reste dominée par les vagues";
@@ -656,26 +720,44 @@ function majLiens(spot) {
 let DONNEES = null;
 let SPOT_ACTIF = 0;
 
+function meilleurePour(spot, attr) {
+  // Meilleure session à venir sur toute la période. Si les sessions n'ont
+  // pas encore été calculées (ancien fichier), on retombe sur la note horaire.
+  const avecSession = spot.creneaux.filter(c => c[attr] != null);
+  if (avecSession.length) {
+    return avecSession.sort((a, z) => z[attr] - a[attr])[0];
+  }
+  const horaire = attr === "session_surf" ? "note_totale" : "note_wing";
+  const c = [...spot.creneaux].sort((a, z) => z[horaire] - a[horaire])[0];
+  return c ? { ...c, [attr]: c[horaire] } : null;
+}
+
+function heureCourte(instant) {
+  const d = new Date(instant);
+  return `${JOURS[d.getDay()].slice(0, 3)} ${d.getDate()}, ${String(d.getHours()).padStart(2, "0")}h`;
+}
+
 function carteSpot(spot, index) {
   const b = el("button", "carte-spot");
   b.type = "button";
   b.setAttribute("aria-pressed", String(index === SPOT_ACTIF));
 
-  const meilleur = [...spot.creneaux].sort((a, z) => z.note_totale - a.note_totale)[0];
-  if (!meilleur) {
-    b.innerHTML = `<span class="mat"></span><span class="corps">
-      <span class="nom">${spot.nom}</span>
+  if (!spot.creneaux.length) {
+    b.innerHTML = `<span class="mats"><span class="mat"></span><span class="mat"></span></span>
+      <span class="corps"><span class="nom">${spot.nom}</span>
       <span class="quand">${spot.erreur ? "indisponible" : "pas de données"}</span></span>`;
   } else {
-    const d = new Date(meilleur.instant);
-    const n = meilleur.note_totale;
-    b.innerHTML = `
-      <span class="mat"><i style="height:${n > 0 ? n / 5 * 100 : 0}%;background:${couleur(n)}"></i></span>
-      <span class="corps">
-        <span class="nom">${spot.nom}</span>
-        <span class="val" style="color:${couleur(n)}">${n.toFixed(1)}</span>
-        <span class="quand">${JOURS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MOIS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}h</span>
-      </span>`;
+    const disc = [["surf", "session_surf"], ["wing", "session_wing"]].map(([nom, attr]) => {
+      const c = meilleurePour(spot, attr);
+      return { nom, c, n: c ? c[attr] : 0 };
+    });
+    const mat = x => `<span class="mat" title="${x.nom}"><i style="height:${x.n > 0 ? x.n / 5 * 100 : 0}%;background:${couleur(x.n)}"></i></span>`;
+    const ligneDisc = x => `<span class="disc"><span class="qui">${x.nom}</span>
+        <b style="color:${couleur(x.n)}">${x.n.toFixed(1)}</b>
+        <span>${x.c && x.n > 0 ? heureCourte(x.c.instant) : "—"}</span></span>`;
+    b.innerHTML = `<span class="mats">${disc.map(mat).join("")}</span>
+      <span class="corps"><span class="nom">${spot.nom}</span>
+        ${disc.map(ligneDisc).join("")}</span>`;
   }
 
   b.addEventListener("click", () => {
@@ -717,20 +799,34 @@ function afficher() {
     .filter(v => v !== null && v !== undefined);
   BORNES = eaux.length ? [Math.min(...eaux), Math.max(...eaux)] : [0, 1];
 
-  const best = [...spot.creneaux].sort((a, z) => z.note_totale - a.note_totale)[0];
   const pic = spot.pic_maree_h;
   const quandMaree = pic > 0 ? `${pic} h après la pleine mer`
     : pic < 0 ? `${Math.abs(pic)} h avant la pleine mer` : "à la pleine mer";
+  const duree = spot.duree_session_h || 2;
+  const plage = c => {
+    const d = new Date(c.instant), fin = new Date(d.getTime() + duree * 3600e3);
+    return `${JOURS[d.getDay()]} ${d.getDate()}, ${String(d.getHours()).padStart(2, "0")}h–${String(fin.getHours()).padStart(2, "0")}h`;
+  };
+  const bSurf = meilleurePour(spot, "session_surf");
+  const bWing = meilleurePour(spot, "session_wing");
+  const orage = c => c.risque_orage && c.risque_orage !== "nul"
+    ? ` · <span style="color:var(--n1)">orage ${c.risque_orage}</span>` : "";
   const detail = el("p", "phare");
-  detail.innerHTML = (best.note_totale > 0
-    ? `Meilleur créneau : `
-    : `Rien de surfable sur la période. Au mieux : `) + `<b>${best.hauteur_m.toFixed(2)} m à
-    ${best.tpeak_s.toFixed(1)} s</b> · ${Math.round(best.energie_kwm)} kJ ·
-    vent ${Math.round(best.vitesse_kt)} nds ${rose(best.dir_vent)}${
-      best.risque_orage && best.risque_orage !== "nul"
-        ? ` · <span style="color:var(--n1)">orage ${best.risque_orage}</span>` : ""}
-    <br>Houle attendue de ${spot.bouee}, optimum ${quandMaree}.
-    Vent : ${best.modele_vent || "—"}.`;
+  detail.innerHTML =
+    (bSurf && bSurf.session_surf > 0
+      ? `Surf : <b>${plage(bSurf)}</b>, ${bSurf.session_surf.toFixed(1)}/5 —
+         ${bSurf.hauteur_m.toFixed(2)} m à ${bSurf.tpeak_s.toFixed(1)} s,
+         vent ${Math.round(bSurf.vitesse_kt)} nds ${rose(bSurf.dir_vent)}${orage(bSurf)}`
+      : `Surf : rien de surfable sur la période.`)
+    + `<br>` +
+    (bWing && bWing.session_wing > 0
+      ? `Wing : <b>${plage(bWing)}</b>, ${bWing.session_wing.toFixed(1)}/5 —
+         ${Math.round(bWing.vitesse_kt)} à ${Math.round(bWing.rafales_kt)} nds
+         ${rose(bWing.dir_vent)}${orage(bWing)}`
+      : `Wing : pas de fenêtre praticable sur la période.`)
+    + `<br><small>Houle attendue de ${spot.bouee}, optimum de marée surf
+       ${quandMaree}. Sessions de ${duree} h. Carrés pâles = prévision moins
+       fiable.</small>`;
   contenu.append(detail);
 
   const resumes = {};
@@ -751,7 +847,7 @@ function afficher() {
     if (resumes[k]) bloc.append(apercuJournee(resumes[k]));
     const alerte = alerteOrage(resumes[k]);
     if (alerte) bloc.append(alerte);
-    bloc.append(tableauJournee(parJour[k], best.instant));
+    bloc.append(tableauJournee(parJour[k], duree));
     contenu.append(bloc);
   });
 }
@@ -762,7 +858,7 @@ function afficher() {
    La page ne peut pas écrire dans le dépôt, alors elle prépare la ligne
    CSV, la copie, et ouvre journal.csv en édition sur GitHub. */
 
-let J_NOTE = 3;
+const J_NOTES = { cond: 3, sess: 3 };
 
 function depotGitHub() {
   // Sur Pages, l'adresse est compte.github.io/depot/ : tout est déductible.
@@ -774,12 +870,13 @@ function depotGitHub() {
 }
 
 function ligneCsv() {
-  const jour = document.getElementById("j-jour").value;
-  const heure = document.getElementById("j-heure").value;
-  const spot = document.getElementById("j-spot").value;
-  let com = document.getElementById("j-com").value.trim().replace(/"/g, "'");
+  const v = id => document.getElementById(id).value;
+  const type = v("j-type");
+  let com = v("j-com").trim().replace(/"/g, "'");
   if (com.includes(",")) com = `"${com}"`;
-  return `${jour},${heure},${spot},${J_NOTE},${com}`;
+  // Format : date,heure,spot,discipline,type,conditions,session,commentaire
+  const sess = type === "observation" ? "" : J_NOTES.sess;
+  return `${v("j-jour")},${v("j-heure")},${v("j-spot")},${v("j-disc")},${type},${J_NOTES.cond},${sess},${com}`;
 }
 
 function rafraichirLigne() {
@@ -820,26 +917,36 @@ function initJournal() {
     spots.append(o);
   });
 
-  const choix = document.getElementById("j-note");
-  for (let n = 1; n <= 5; n++) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = n;
-    b.setAttribute("aria-pressed", String(n === J_NOTE));
-    b.style.background = n === J_NOTE ? couleur(n) : "";
-    b.addEventListener("click", () => {
-      J_NOTE = n;
-      [...choix.children].forEach((x, i) => {
-        const actif = i + 1 === n;
-        x.setAttribute("aria-pressed", String(actif));
-        x.style.background = actif ? couleur(i + 1) : "";
+  // Deux sélecteurs de carrés : conditions et session.
+  [["j-cond", "cond"], ["j-sess", "sess"]].forEach(([id, cle]) => {
+    const choix = document.getElementById(id);
+    for (let n = 1; n <= 5; n++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = n;
+      b.setAttribute("aria-pressed", String(n === J_NOTES[cle]));
+      b.style.background = n === J_NOTES[cle] ? couleur(n) : "";
+      b.addEventListener("click", () => {
+        J_NOTES[cle] = n;
+        [...choix.children].forEach((x, i) => {
+          const actif = i + 1 === n;
+          x.setAttribute("aria-pressed", String(actif));
+          x.style.background = actif ? couleur(i + 1) : "";
+        });
+        rafraichirLigne();
       });
-      rafraichirLigne();
-    });
-    choix.append(b);
-  }
+      choix.append(b);
+    }
+  });
 
-  ["j-jour", "j-heure", "j-spot", "j-com"].forEach(id =>
+  // En observation, il n'y a pas de session à noter.
+  const typeChamp = document.getElementById("j-type");
+  const blocSess = document.getElementById("j-bloc-sess");
+  typeChamp.addEventListener("input", () => {
+    blocSess.style.display = typeChamp.value === "observation" ? "none" : "";
+  });
+
+  ["j-jour", "j-heure", "j-spot", "j-disc", "j-type", "j-com"].forEach(id =>
     document.getElementById(id).addEventListener("input", rafraichirLigne));
 
   const lien = document.getElementById("j-ouvrir");
@@ -863,8 +970,33 @@ function initJournal() {
   rafraichirLigne();
 }
 
+// Un data.json produit par une version antérieure du script n'a pas tous les
+// champs. On les complète avec des valeurs neutres : la page reste lisible
+// entre la mise en ligne d'une nouvelle page et le recalcul suivant.
+function normaliser(data) {
+  (data.spots || []).forEach(sp => {
+    sp.creneaux = sp.creneaux || [];
+    sp.journees = sp.journees || [];
+    sp.creneaux.forEach(c => {
+      c.note_totale ??= 0;
+      c.note_wing ??= 0;
+      c.session_surf ??= null;
+      c.session_wing ??= null;
+      c.fiabilite ??= 1;
+      c.wing_detail ??= {};
+    });
+    sp.journees.forEach(r => {
+      r.meilleure_note ??= 0;
+      r.meilleure_heure ??= "";
+      r.meilleure_note_wing ??= 0;
+      r.meilleure_heure_wing ??= "";
+    });
+  });
+  return data;
+}
+
 function rendre(data) {
-  DONNEES = data;
+  DONNEES = normaliser(data);
   const maj = new Date(data.genere_le);
   document.getElementById("maj").textContent =
     `mis à jour ${String(maj.getHours()).padStart(2, "0")}h${String(maj.getMinutes()).padStart(2, "0")}`;

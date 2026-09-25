@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 """
-alerter.py — Prépare une notification quand un bon créneau apparaît.
+alerter.py — Prévient quand une bonne session se profile, en surf ou en wing.
 
-Lit `docs/data.json` produit par previsions.py, et signale les créneaux qui
-dépassent le seuil. Un fichier d'état retient ce qui a déjà été annoncé :
-comme le calcul tourne toutes les trois heures, sans ça tu recevrais huit fois
-par jour la même alerte pour le même créneau.
+Lit `docs/data.json` et compare à ce qui a déjà été annoncé, conservé dans
+`etat_alertes.json`. Quatre sortes de messages :
 
-Le message part sur la sortie standard, vide s'il n'y a rien à dire. C'est le
-workflow qui se charge de l'envoyer.
+  - NOUVEAU    une journée passe au-dessus du seuil ;
+  - MIEUX      une session déjà annoncée s'améliore nettement ;
+  - ANNULÉ     une session annoncée retombe sous le seuil ;
+  - MAINTENANT une bonne session commence dans les trois heures, en tenant
+               compte du temps de trajet jusqu'au spot.
+
+On raisonne par session de deux heures et par journée : une seule ligne par
+spot, discipline et jour, pour que la notification reste lisible sur un
+écran verrouillé.
+
+Le message part sur la sortie standard (vide s'il n'y a rien), et le fichier
+`priorite.txt` indique au workflow s'il faut sonner plus fort.
 
 Usage :
-    python alerter.py --seuil 3
-    python alerter.py --seuil 3.5 --essai     # sans toucher au fichier d'état
+    python alerter.py --seuil 3 --seuil-wing 3
+    python alerter.py --essai        # affiche sans rien mémoriser
 """
 
 from __future__ import annotations
@@ -29,59 +37,70 @@ try:
 except Exception:
     _ZONE = None
 
-
-def maintenant():
-    """Heure française sans tenir compte du fuseau de la machine, et sans
-    décalage attaché, pour se comparer aux créneaux qui sont déjà en heure
-    locale."""
-    d = datetime.now(_ZONE) if _ZONE else datetime.now()
-    return d.replace(tzinfo=None)
-
 RACINE = Path(__file__).parent
 DONNEES = RACINE / "docs" / "data.json"
 ETAT = RACINE / "etat_alertes.json"
+PRIORITE = RACINE / "priorite.txt"
 
-# Au-delà, la notification devient illisible sur un écran verrouillé.
-MAX_LIGNES = 8
+HAUSSE_NOTABLE = 0.75     # gain qui justifie une nouvelle alerte
+MARGE_ANNULATION = 0.5    # sous seuil - marge, une session annoncée est annulée
+HORIZON_IMMEDIAT_H = 3    # « c'est bon maintenant » : départ dans ce délai
 
-JOURS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
-MOIS_FR = ["janv.", "févr.", "mars", "avril", "mai", "juin",
-           "juil.", "août", "sept.", "oct.", "nov.", "déc."]
-
-
-def date_fr(d: datetime) -> str:
-    return f"{JOURS_FR[d.weekday()]} {d.day} {MOIS_FR[d.month - 1]}"
+JOURS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
 
 
-def charger_etat() -> set[str]:
-    if not ETAT.exists():
-        return set()
+def maintenant() -> datetime:
+    d = datetime.now(_ZONE) if _ZONE else datetime.now()
+    return d.replace(tzinfo=None)
+
+
+def charger_etat() -> dict:
     try:
-        return set(json.loads(ETAT.read_text(encoding="utf-8")))
+        etat = json.loads(ETAT.read_text(encoding="utf-8"))
+        if isinstance(etat, dict):
+            etat.setdefault("annonces", {})
+            etat.setdefault("immediats", [])
+            return etat
     except Exception:
-        return set()
+        pass
+    # Ancien format (simple liste) ou fichier absent : on repart de zéro.
+    return {"annonces": {}, "immediats": []}
 
 
-def enregistrer_etat(cles: set[str]) -> None:
-    """On ne garde que le futur proche : l'état ne doit pas grossir sans fin."""
-    limite = maintenant() - timedelta(days=1)
-    vivantes = []
-    for c in cles:
-        try:
-            if datetime.fromisoformat(c.split("|", 1)[1]) >= limite:
-                vivantes.append(c)
-        except (ValueError, IndexError):
+def meilleures_sessions(spot, attr, depart_min):
+    """Meilleure session de chaque jour, parmi celles qui commencent assez tard."""
+    par_jour = {}
+    for c in spot.get("creneaux", []):
+        note = c.get(attr)
+        if note is None:
             continue
-    ETAT.write_text(json.dumps(sorted(vivantes), ensure_ascii=False),
-                    encoding="utf-8")
+        debut = datetime.fromisoformat(c["instant"])
+        if debut < depart_min:
+            continue
+        jour = debut.date().isoformat()
+        if jour not in par_jour or note > par_jour[jour][0]:
+            par_jour[jour] = (note, debut, c)
+    return par_jour
+
+
+def ligne(etiquette, nom, disc, debut, note, duree, c=None):
+    fin = debut + timedelta(hours=duree)
+    detail = ""
+    if c is not None:
+        if disc == "surf":
+            detail = f"  {c['hauteur_m']:.1f} m à {c['tpeak_s']:.0f} s"
+        else:
+            detail = f"  {round(c['vitesse_kt'])}-{round(c['rafales_kt'])} nds"
+    return (f"{etiquette} {nom} {disc} {JOURS[debut.weekday()]} {debut.day} "
+            f"{debut:%H}h-{fin:%H}h : {note:.1f}/5{detail}")
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--seuil", type=float, default=3.0,
-                   help="note à partir de laquelle on prévient (défaut 3)")
+    p.add_argument("--seuil", type=float, default=3.0, help="seuil surf")
+    p.add_argument("--seuil-wing", type=float, default=3.0, help="seuil wing")
     p.add_argument("--essai", action="store_true",
-                   help="afficher sans mettre à jour le fichier d'état")
+                   help="afficher sans mettre à jour l'état")
     args = p.parse_args()
 
     if not DONNEES.exists():
@@ -89,40 +108,82 @@ def main() -> int:
         return 1
 
     data = json.loads(DONNEES.read_text(encoding="utf-8"))
-    deja = charger_etat()
-    reference = maintenant()
+    etat = charger_etat()
+    annonces = etat["annonces"]
+    immediats = set(etat["immediats"])
+    ref = maintenant()
+    aujourd_hui = ref.date().isoformat()
 
-    nouveaux = []
-    toutes_cles = set(deja)
+    urgents, lignes = [], []
+    seuils = {"surf": args.seuil, "wing": args.seuil_wing}
+
     for spot in data.get("spots", []):
-        for c in spot.get("creneaux", []):
-            if c["note_totale"] < args.seuil:
-                continue
-            instant = datetime.fromisoformat(c["instant"])
-            if instant <= reference:           # inutile de prévenir pour du passé
-                continue
-            cle = f"{spot['cle']}|{c['instant']}"
-            toutes_cles.add(cle)
-            if cle not in deja:
-                nouveaux.append((spot["nom"], instant, c))
+        if not spot.get("creneaux"):
+            continue
+        nom = spot["nom"]
+        duree = spot.get("duree_session_h", 2)
+        depart_min = ref + timedelta(minutes=spot.get("trajet_min", 0))
+
+        for disc, attr in (("surf", "session_surf"), ("wing", "session_wing")):
+            seuil = seuils[disc]
+            sessions = meilleures_sessions(spot, attr, depart_min)
+
+            # MAINTENANT : une bonne session démarre bientôt. Elle vaut aussi
+            # annonce de la journée, pour ne pas la répéter en NOUVEAU.
+            for jour, (note, debut, c) in sessions.items():
+                if note >= seuil and debut <= ref + timedelta(hours=HORIZON_IMMEDIAT_H):
+                    cle = f"{spot['cle']}|{disc}|{debut.isoformat()}"
+                    if cle not in immediats:
+                        urgents.append(ligne("MAINTENANT", nom, disc, debut,
+                                             note, duree, c))
+                        immediats.add(cle)
+                        annonces.setdefault(f"{spot['cle']}|{disc}|{jour}",
+                                            {"note": note, "debut": debut.isoformat()})
+
+            # NOUVEAU / MIEUX
+            for jour, (note, debut, c) in sorted(sessions.items()):
+                cle = f"{spot['cle']}|{disc}|{jour}"
+                deja = annonces.get(cle)
+                if note >= seuil and deja is None:
+                    lignes.append(ligne("NOUVEAU", nom, disc, debut, note, duree, c))
+                    annonces[cle] = {"note": note, "debut": debut.isoformat()}
+                elif deja is not None and note >= deja["note"] + HAUSSE_NOTABLE:
+                    lignes.append(ligne("MIEUX", nom, disc, debut, note, duree, c)
+                                  + f" (était {deja['note']:.1f})")
+                    annonces[cle] = {"note": note, "debut": debut.isoformat()}
+
+            # ANNULÉ : annoncé, encore à venir, mais retombé.
+            for cle, deja in list(annonces.items()):
+                s_cle, s_disc, jour = cle.split("|")
+                if s_cle != spot["cle"] or s_disc != disc or jour < aujourd_hui:
+                    continue
+                if datetime.fromisoformat(deja["debut"]) < ref:
+                    continue
+                actuel = sessions.get(jour)
+                if actuel is None or actuel[0] < seuil - MARGE_ANNULATION:
+                    debut = datetime.fromisoformat(deja["debut"])
+                    note_act = actuel[0] if actuel else 0.0
+                    lignes.append(ligne("ANNULÉ", nom, disc, debut, note_act, duree)
+                                  + f" (était {deja['note']:.1f})")
+                    del annonces[cle]
+
+    # Ménage : on oublie ce qui est passé depuis plus d'un jour.
+    hier = (ref - timedelta(days=1)).date().isoformat()
+    annonces = {k: v for k, v in annonces.items() if k.split("|")[2] >= hier}
+    immediats = {k for k in immediats
+                 if datetime.fromisoformat(k.split("|")[2]) >= ref - timedelta(days=1)}
 
     if not args.essai:
-        enregistrer_etat(toutes_cles)
+        ETAT.write_text(json.dumps({"annonces": annonces,
+                                    "immediats": sorted(immediats)},
+                                   ensure_ascii=False, indent=1), encoding="utf-8")
+        PRIORITE.write_text("high" if urgents else "default", encoding="utf-8")
 
-    if not nouveaux:
-        return 0
-
-    nouveaux.sort(key=lambda t: (-t[2]["note_totale"], t[1]))
-    lignes = []
-    for nom, instant, c in nouveaux[:MAX_LIGNES]:
-        lignes.append(
-            f"{nom} {date_fr(instant)} {instant:%H}h — {c['note_totale']:.1f}/5"
-            f"  ({c['hauteur_m']:.2f} m à {c['tpeak_s']:.1f} s, "
-            f"vent {round(c['vitesse_kt'])} nds)")
-    if len(nouveaux) > MAX_LIGNES:
-        lignes.append(f"et {len(nouveaux) - MAX_LIGNES} autre(s) créneau(x).")
-
-    print("\n".join(lignes))
+    sortie = urgents + lignes
+    if sortie:
+        print("\n".join(sortie[:10]))
+        if len(sortie) > 10:
+            print(f"… et {len(sortie) - 10} autre(s).")
     return 0
 
 
