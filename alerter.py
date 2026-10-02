@@ -89,6 +89,10 @@ def ligne(etiquette, nom, disc, debut, note, duree, c=None):
     if c is not None:
         if disc == "surf":
             detail = f"  {c['hauteur_m']:.1f} m à {c['tpeak_s']:.0f} s"
+            pls = c.get("planches") or []
+            if pls:
+                detail += ", " + " ou ".join(
+                    pl["nom"] + ("" if pl.get("possedee", True) else "*") for pl in pls)
         else:
             detail = f"  {round(c['vitesse_kt'])}-{round(c['rafales_kt'])} nds"
             if c.get("aile_m2"):

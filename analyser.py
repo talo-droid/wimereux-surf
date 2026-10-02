@@ -72,6 +72,7 @@ def lire_journal() -> list[dict]:
                     "type": (l.get("type") or "session").strip().lower(),
                     "conditions": _nombre(l.get("conditions")),
                     "session": _nombre(l.get("session")),
+                    "planche": (l.get("planche") or "").strip(),
                     "commentaire": (l.get("commentaire") or "").strip(),
                 })
             except (ValueError, KeyError) as e:
@@ -181,6 +182,9 @@ def analyser(discipline, entrees, archives):
         barre = "" if r is None else "█" * int(abs(r) * 20)
         print(f"  {libelle:18s} {('  n/a' if r is None else f'{r:+.2f}'):>6s}  {barre} {lecture(r)}")
 
+    if discipline == "surf":
+        bilan_planches(appariees)
+
     par_delai = {}
     for e, prev in appariees:
         for delai, c in prev:
@@ -191,6 +195,35 @@ def analyser(discipline, entrees, archives):
             v = par_delai[d]
             print(f"  {('le jour même' if d == 0 else f'{d} jour(s) avant'):16s} "
                   f"écart moyen {sum(v) / len(v):.2f} sur {len(v)} créneau(x)")
+
+
+def bilan_planches(appariees):
+    """
+    Pour chaque planche utilisée : dans quelles conditions tu l'as prise, et
+    ce que tu en as pensé. C'est ce qui permettra de recaler la règle de
+    planche conseillée sur ta pratique réelle.
+    """
+    par_planche = {}
+    for e, prev in appariees:
+        if e["type"] != "session" or not e["planche"]:
+            continue
+        c = prev[0][1]
+        conseil = [pl["nom"] for pl in (c.get("planches") or [])]
+        par_planche.setdefault(e["planche"], []).append(
+            (c.get("hauteur_m"), c.get("tpeak_s"), e["session"],
+             bool(conseil) and e["planche"] == conseil[0],
+             e["planche"] in conseil))
+    if not par_planche:
+        return
+    print("\nPar planche (sessions de surf)")
+    print(f"  {'planche':8s} {'n':>3s} {'houle':>6s} {'période':>8s} {'ta note':>8s}   "
+          f"{'1er choix':>9s} {'parmi les 2':>11s}")
+    for nom, lignes in sorted(par_planche.items()):
+        n = len(lignes)
+        moy = lambda i: sum(x[i] for x in lignes if x[i] is not None) / max(
+            1, sum(1 for x in lignes if x[i] is not None))
+        print(f"  {nom:8s} {n:3d} {moy(0):5.2f}m {moy(1):7.1f}s {moy(2):8.1f}   "
+              f"{sum(x[3] for x in lignes):5d}/{n:<3d} {sum(x[4] for x in lignes):7d}/{n}")
 
 
 def main() -> int:

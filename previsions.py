@@ -219,10 +219,38 @@ ORAGE_PLAFOND_NOTE = 2.5
 # Un critère très mauvais tire fortement la note vers le bas, et un zéro
 # donne zéro. Ce principe remplace les anciens plafonds et vétos de confort.
 POIDS_SURF = {"houle": 0.50, "vent": 0.30, "maree": 0.20}
+# Petits jours. Sous ~0,7 m, la houle seule ne dit plus grand-chose : c'est la
+# propreté du plan d'eau qui décide si ça vaut le coup d'œil. Le vent pèse
+# donc davantage, et la houle reçoit un plancher modeste au lieu de zéro.
+POIDS_SURF_PETIT = {"houle": 0.40, "vent": 0.45, "maree": 0.15}
+# Les poids passent progressivement de l'un à l'autre entre ces hauteurs.
+HAUTEUR_PETIT_JOUR = (0.45, 0.70)
+# Plancher de la note de houle pour une petite mer : rien sous 0,30 m, 1 à
+# 0,45 m, 1,6 à 0,70 m. Assez pour qu'un petit jour glassy ressorte à 2 ou
+# 2,5, pas assez pour déclencher une alerte réglée à 3.
+PETITE_HOULE = [(0.30, 0.0), (0.45, 1.0), (0.60, 1.4), (0.70, 1.6)]
 POIDS_MAREE = {"position": 0.6, "stabilite": 0.4}
 # Pour la wing, la force du vent n'entre pas dans la moyenne : elle la
 # multiplie. Sous-toilé ou débordé, le reste ne compte plus.
 POIDS_WING = {"rafales": 0.33, "maree": 0.42, "mer": 0.25}
+
+# --- Planches de surf ------------------------------------------------------
+# Ton quiver. "possedee" à False tant que la planche n'est pas achetée :
+# elle reste proposée, marquée d'un astérisque sur la page. Le jour où tu
+# l'as, passe-la à True.
+PLANCHES = [
+    {"nom": "5'6", "litres": 32.7, "possedee": True},
+    {"nom": "5'9", "litres": 37.3, "possedee": False},
+    {"nom": "6'1", "litres": 46.5, "possedee": True},
+]
+# Volume idéal selon la hauteur de houle : plus la mer est petite, plus il
+# faut de flottaison pour ramer et partir tôt. Point de départ, à recaler
+# avec la colonne « planche » du journal.
+VOLUME_SELON_HAUTEUR = [(0.4, 47.0), (0.6, 44.0), (0.75, 38.0), (0.9, 35.0),
+                        (1.1, 33.0), (2.0, 32.0)]
+# Supplément quand la période est courte : une mer molle pousse peu, il faut
+# du volume en plus pour garder de la vitesse.
+SUPPLEMENT_MER_MOLLE = [(4.5, 4.0), (6.0, 2.0), (7.0, 0.0)]
 
 # --- Session ---------------------------------------------------------------
 # On surfe des sessions, pas des heures : la note de session est la moyenne
@@ -371,8 +399,13 @@ def score_houle(sp, hauteur_m, tpeak_s, direction_deg, xi=None, part_houle=None)
     s = sp["seuils_houle"]
     f_dir = facteur_direction(sp, direction_deg)
     hs = hauteur_m * CALIBRATION_HOULE
-    if f_dir == 0 or hs <= s["h_nulle"]:
+    if f_dir == 0:
         return 0.0
+    # Plancher des petits jours, sans les bonus de période ni de déferlement :
+    # une petite mer reste une petite mer, seul le vent la rendra jouable.
+    plancher = round(_interp(hs, PETITE_HOULE) * f_dir, 2) if hs > PETITE_HOULE[0][0] else 0.0
+    if hs <= s["h_nulle"]:
+        return plancher
 
     points = (3.0 * _borne((hs - s["h_min"]) / (s["h_pleine"] - s["h_min"]))
               + 2.0 * _borne((tpeak_s - s["t_min"]) / (s["t_pleine"] - s["t_min"])))
@@ -385,7 +418,7 @@ def score_houle(sp, hauteur_m, tpeak_s, direction_deg, xi=None, part_houle=None)
 
     if hs < s["h_min"]:
         points *= (hs - s["h_nulle"]) / (s["h_min"] - s["h_nulle"])
-    return round(points * f_dir, 2)
+    return max(round(points * f_dir, 2), plancher)
 
 
 # ---------- Surf : vent ----------
@@ -483,10 +516,26 @@ def appliquer_orage(note: float, orage: str) -> float:
     return note
 
 
-def note_surf(houle, maree, vent, orage="nul") -> float:
+def poids_surf(hauteur_m):
+    """Poids de la note surf : ceux des petits jours sous 0,45 m, les poids
+    normaux au-delà de 0,70 m, et un passage progressif entre les deux."""
+    if hauteur_m is None:
+        return POIDS_SURF
+    bas, haut = HAUTEUR_PETIT_JOUR
+    t = _borne((hauteur_m - bas) / (haut - bas))
+    return {k: POIDS_SURF_PETIT[k] + (POIDS_SURF[k] - POIDS_SURF_PETIT[k]) * t
+            for k in POIDS_SURF}
+
+
+def note_surf(houle, maree, vent, orage="nul", hauteur_m=None) -> float:
     n = moyenne_geometrique({"houle": houle, "vent": vent, "maree": maree},
-                            POIDS_SURF)
-    return appliquer_orage(n, orage)
+                            poids_surf(hauteur_m))
+    # Près de zéro, une moyenne géométrique bondit : un dixième de point de
+    # houle donnerait déjà presque 1 sur 5. Sous un point de houle, la note
+    # s'efface donc proportionnellement, en bas de taille comme au bord de la
+    # fenêtre de direction.
+    n *= _borne(houle / 1.0)
+    return appliquer_orage(round(n, 2), orage)
 
 
 # ---------- Wing ----------
@@ -590,6 +639,23 @@ def score_wing(sp, vitesse_kt, rafales_kt, direction_deg, fraction_maree,
     n = (moyenne_geometrique(detail, POIDS_WING)
          * detail["force"] / 5.0 * detail["direction"])
     return appliquer_orage(round(n, 2), orage), detail
+
+
+# ---------- Planches ----------
+
+def planches_conseillees(hauteur_m, periode_s):
+    """
+    Les deux planches dont le volume approche le plus le volume idéal pour
+    ces conditions, de la plus adaptée à la seconde. Les volumes se suivant,
+    les deux proposées sont voisines : la paire contient donc toujours au
+    moins une planche que tu possèdes.
+    """
+    if not hauteur_m or not periode_s:
+        return []
+    cible = (_interp(hauteur_m, VOLUME_SELON_HAUTEUR)
+             + _interp(periode_s, SUPPLEMENT_MER_MOLLE))
+    classees = sorted(PLANCHES, key=lambda pl: abs(pl["litres"] - cible))
+    return [{"nom": pl["nom"], "possedee": pl["possedee"]} for pl in classees[:2]]
 
 
 # ---------- Fiabilité ----------
@@ -1058,6 +1124,7 @@ class Creneau:
     note_maree: float
     note_vent: float
     note_totale: float              # note surf, nom conservé pour le journal
+    planches: list
     # notes wing
     note_wing: float
     wing_detail: dict
@@ -1208,7 +1275,8 @@ def construire_creneaux(sp, heures: int):
             fiabilite=fiabilite(echeance, v.get("ecart_vent_kt"), h["ecart_modeles_m"]),
             note_houle=n_houle, note_position=n_pos, note_stabilite=n_stab,
             note_maree=n_maree, note_vent=n_vent,
-            note_totale=note_surf(n_houle, n_maree, n_vent, orage),
+            note_totale=note_surf(n_houle, n_maree, n_vent, orage, h["hauteur_m"]),
+            planches=planches_conseillees(h["hauteur_m"], h["tpeak_s"]),
             note_wing=n_wing, wing_detail=detail_wing,
             aile_m2=aile, toilage=toilage,
         ))
@@ -1286,6 +1354,8 @@ def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None) ->
     charge = {
         # Avec le décalage explicite : le navigateur sait alors le convertir.
         "genere_le": maintenant().isoformat(timespec="minutes"),
+        # Le quiver, pour que la page propose les mêmes planches au journal.
+        "planches": PLANCHES,
         # Ordre fixe, celui de SPOTS. Un spot en échec reste présent avec sa
         # raison : mieux vaut « Calais indisponible, parce que… » qu'une
         # disparition silencieuse.

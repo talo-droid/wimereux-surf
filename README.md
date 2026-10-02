@@ -39,6 +39,13 @@ plafonnée à 2,5.
   jusqu'à un point et demi.
 - *Marée* : position dans le cycle × stabilité de la zone de déferlement
   (vitesse à laquelle le bord de l'eau se déplace sur l'estran).
+- *Petits jours* : sous 0,70 m, la houle reçoit un plancher modeste (1 point
+  à 0,45 m, 1,6 à 0,70 m), et le poids du vent passe progressivement de 30 à
+  45 % — sur une petite mer, c'est la propreté du plan d'eau qui décide.
+  Résultat : 0,45 m à 5 s ressort autour de 2,5 par temps calme, de quoi
+  aller jeter un œil, mais retombe vers 1 dès que l'onshore s'en mêle. Rien
+  sous 0,30 m. Sous un point de houle, la note globale s'efface
+  proportionnellement, pour éviter les sauts près de zéro.
 - Le RTR (marnage rapporté à la houle) est affiché mais n'entre plus dans la
   note : il dépend du coefficient, comme la stabilité, et le compter deux fois
   pénalisait doublement les vives-eaux.
@@ -58,6 +65,14 @@ la plus petite. Pour 75 kg avec 4,5 / 5 / 5,5 m² : rien sous 12 nœuds, bon dè
 15, plein régime de 17 à 23, puis déclin rapide au-delà de 25 ou avec des
 rafales au-dessus de 28. Chaque créneau indique aussi l'aile conseillée. Si
 ton quiver change, modifie seulement `RIDEUR`.
+
+**Planche conseillée.** Pour chaque heure, les deux Seaside dont le volume
+approche le plus le volume idéal pour la houle du moment. Le volume idéal
+part de la hauteur — 47 L à 0,40 m, 38 L à 0,75 m, 33 L à 1,10 m — et gagne
+jusqu'à 4 L quand la période est courte, parce qu'une mer molle pousse peu.
+Les planches se suivant en volume, la paire proposée contient toujours au
+moins une planche que tu possèdes. Une planche pas encore achetée est marquée
+d'un astérisque.
 
 **Sessions.** On note des heures, mais on surfe des sessions : la « meilleure
 session » est la meilleure fenêtre de deux heures consécutives de jour.
@@ -115,10 +130,13 @@ Réglages communs :
 | Constante | Rôle |
 |---|---|
 | `POIDS_SURF`, `POIDS_WING`, `POIDS_MAREE` | poids des moyennes géométriques |
+| `POIDS_SURF_PETIT`, `HAUTEUR_PETIT_JOUR`, `PETITE_HOULE` | réglage des petits jours glassy |
 | `VENT_OFFSHORE`, `VENT_ONSHORE` | courbes de note de vent surf selon la force |
 | `RIDEUR` | ton poids et tes ailes : les courbes de force wing en dérivent |
 | `K_TAILLE` | coefficient de la règle taille ≈ k × poids ÷ vent |
 | `WING_RAFALES`, `WING_DIRECTION`, `WING_MAREE`, `WING_MER` | autres courbes de la wing |
+| `PLANCHES` | ton quiver de surf : nom, volume, et `possedee` à passer à `True` le jour de l'achat |
+| `VOLUME_SELON_HAUTEUR`, `SUPPLEMENT_MER_MOLLE` | règle du volume idéal, à recaler avec le journal |
 | `DUREE_SESSION_H` | durée d'une session, 2 h par défaut |
 | `FIABILITE_ECHEANCE` | baisse de confiance avec l'échéance |
 | `CALIBRATION_HOULE` | facteur correctif de hauteur |
@@ -141,9 +159,9 @@ GitHub ; il ne reste qu'à coller à la fin du fichier et valider.
 Format d'une ligne :
 
 ```
-date,heure,spot,discipline,type,conditions,session,commentaire
-2026-09-27,16,wimereux,surf,session,4,3,belles séries mais du monde
-2026-09-28,11,calais,wing,observation,2,,vent tombé à midi
+date,heure,spot,discipline,type,conditions,session,planche,commentaire
+2026-09-27,16,wimereux,surf,session,4,3,5'6,belles séries mais du monde
+2026-09-28,11,calais,wing,observation,2,,,vent tombé à midi
 ```
 
 - `discipline` : `surf` ou `wing`.
@@ -151,6 +169,7 @@ date,heure,spot,discipline,type,conditions,session,commentaire
   regardé la mer.
 - `conditions` : la qualité de la mer et du vent, de 1 à 5. C'est **elle**
   qu'on compare à la note calculée.
+- `planche` : la planche utilisée, pour une session de surf seulement.
 - `session` : ton plaisir, de 1 à 5, vide pour une observation. Il dépend
   aussi de la fatigue, du monde à l'eau et du matériel ; il est conservé mais
   jamais comparé au modèle.
@@ -173,7 +192,10 @@ python3 analyser.py --spot calais --discipline wing
 Pour chaque discipline, le script affiche l'écart entre conditions observées
 et note calculée, compte les bonnes conditions ratées et les fausses
 promesses, classe les critères selon leur lien avec les conditions observées,
-et montre comment la prévision se dégrade avec son ancienneté. En dessous
+montre comment la prévision se dégrade avec son ancienneté, et dresse un
+bilan par planche : dans quelle houle tu l'as prise, ce que tu en as pensé,
+et combien de fois elle correspondait au conseil. C'est ce bilan qui servira
+à recaler la règle de volume. En dessous
 d'une douzaine d'entrées, les corrélations sont du bruit, et le script le
 dit.
 
