@@ -152,6 +152,13 @@
   tr.separe td, tr.separe th { border-top: 1px solid var(--trait); }
   .fleche { display: inline-block; font-size: 0.95rem; line-height: 1; }
   .colonne-top { background: #ffffff5c; }
+  /* Planches conseillées : la première en évidence, la seconde en dessous.
+     Une planche pas encore achetée est en italique, avec un astérisque. */
+  td.planche { font-size: 0.74rem; line-height: 1.15; padding-top: 0.1rem; padding-bottom: 0.15rem; }
+  td.planche .p1 { display: block; font-weight: 600; }
+  td.planche .p2 { display: block; color: var(--galet); }
+  td.planche .absente { font-style: italic; }
+
   /* Meilleure session wing du jour : un soulignement sous ses carrés. */
   td.session-wing { box-shadow: inset 0 -3px 0 var(--ardoise); }
 
@@ -354,6 +361,8 @@
         <select id="j-disc"><option value="surf">surf</option><option value="wing">wing</option></select></div>
       <div><label for="j-type">type</label>
         <select id="j-type"><option value="session">session</option><option value="observation">observation</option></select></div>
+      <div id="j-bloc-planche"><label for="j-planche">planche</label>
+        <select id="j-planche"></select></div>
     </div>
     <div class="champs">
       <div style="flex:1">
@@ -391,6 +400,9 @@
   effondre la note quand le vent pousse vers le large. Les colonnes éclairées
   marquent la meilleure session surf du jour, le soulignement la meilleure
   session wing. Un carré pâle signale une prévision lointaine ou disputée.
+  <br>Planche : les deux Seaside dont le volume approche le plus le volume
+  idéal pour la houle du moment ; un astérisque signale une planche pas encore
+  dans ton quiver.
   <br>Énergie : flux de puissance de la houle, 0,49 × Hs² × T, en kilojoules
   par seconde et par mètre de crête. ξ : nombre d'Iribarren, seuils calibrés
   pour une plage dissipative. RTR : marnage rapporté à la hauteur de houle,
@@ -476,6 +488,16 @@ function motifZero(c, disc) {
   return "";
 }
 
+// Nom de planche, avec astérisque si elle n'est pas encore dans le quiver.
+function nomPlanche(pl) {
+  return pl.possedee ? pl.nom : `<span class="absente">${pl.nom}*</span>`;
+}
+
+function texteplanches(c) {
+  const pls = c.planches || [];
+  return pls.length ? pls.map(pl => pl.nom + (pl.possedee ? "" : "*")).join(" ou ") : "";
+}
+
 function libelleFiabilite(f) {
   return f >= 0.85 ? "fiable" : f >= 0.6 ? "fiabilité moyenne" : "fiabilité faible";
 }
@@ -506,6 +528,7 @@ function tableauJournee(creneaux, dureeSession) {
   const lignes = [
     { cle: "heures", libelle: "" },
     { cle: "surf",   libelle: "surf" },
+    { cle: "planche", libelle: "planche" },
     { cle: "wing",   libelle: "wing" },
     { cle: "orage",  libelle: "orage" },
     { cle: "hauteur", libelle: "houle m", sep: true },
@@ -565,6 +588,17 @@ function tableauJournee(creneaux, dureeSession) {
         case "energie":
           cel.textContent = c.energie_kwm >= 10 ? Math.round(c.energie_kwm) : c.energie_kwm.toFixed(1);
           break;
+        case "planche": {
+          const pls = c.planches || [];
+          cel.classList.add("planche");
+          // Rien à surfer, rien à conseiller.
+          if (!pls.length || c.note_totale === 0) { cel.innerHTML = `<span class="creux">–</span>`; break; }
+          cel.innerHTML = `<span class="p1">${nomPlanche(pls[0])}</span>`
+            + (pls[1] ? `<span class="p2">${nomPlanche(pls[1])}</span>` : "");
+          cel.title = `Planche : ${texteplanches(c)}`
+            + (pls.some(pl => !pl.possedee) ? " — * pas encore dans ton quiver" : "");
+          break;
+        }
         case "orage": {
           const n = c.risque_orage;
           if (n === "nul") { cel.innerHTML = `<span class="creux">–</span>`; break; }
@@ -819,7 +853,8 @@ function afficher() {
     (bSurf && bSurf.session_surf > 0
       ? `Surf : <b>${plage(bSurf)}</b>, ${bSurf.session_surf.toFixed(1)}/5 —
          ${bSurf.hauteur_m.toFixed(2)} m à ${bSurf.tpeak_s.toFixed(1)} s,
-         vent ${Math.round(bSurf.vitesse_kt)} nds ${rose(bSurf.dir_vent)}${orage(bSurf)}`
+         vent ${Math.round(bSurf.vitesse_kt)} nds ${rose(bSurf.dir_vent)}${
+           (bSurf.planches || []).length ? `, Seaside ${texteplanches(bSurf)}` : ""}${orage(bSurf)}`
       : `Surf : rien de surfable sur la période.`)
     + `<br>` +
     (bWing && bWing.session_wing > 0
@@ -878,9 +913,11 @@ function ligneCsv() {
   const type = v("j-type");
   let com = v("j-com").trim().replace(/"/g, "'");
   if (com.includes(",")) com = `"${com}"`;
-  // Format : date,heure,spot,discipline,type,conditions,session,commentaire
+  // Format : date,heure,spot,discipline,type,conditions,session,planche,commentaire
   const sess = type === "observation" ? "" : J_NOTES.sess;
-  return `${v("j-jour")},${v("j-heure")},${v("j-spot")},${v("j-disc")},${type},${J_NOTES.cond},${sess},${com}`;
+  // La planche n'a de sens que pour une session de surf.
+  const planche = type === "session" && v("j-disc") === "surf" ? v("j-planche") : "";
+  return `${v("j-jour")},${v("j-heure")},${v("j-spot")},${v("j-disc")},${type},${J_NOTES.cond},${sess},${planche},${com}`;
 }
 
 function rafraichirLigne() {
@@ -946,11 +983,30 @@ function initJournal() {
   // En observation, il n'y a pas de session à noter.
   const typeChamp = document.getElementById("j-type");
   const blocSess = document.getElementById("j-bloc-sess");
-  typeChamp.addEventListener("input", () => {
-    blocSess.style.display = typeChamp.value === "observation" ? "none" : "";
+  // Menu des planches : celles du quiver, plus « autre ».
+  const menuPlanche = document.getElementById("j-planche");
+  (DONNEES.planches || []).forEach(pl => {
+    const o = document.createElement("option");
+    o.value = pl.nom;
+    o.textContent = pl.possedee ? pl.nom : `${pl.nom} (pas encore)`;
+    menuPlanche.append(o);
   });
+  menuPlanche.append(Object.assign(document.createElement("option"),
+                                   { value: "autre", textContent: "autre" }));
 
-  ["j-jour", "j-heure", "j-spot", "j-disc", "j-type", "j-com"].forEach(id =>
+  // En observation, ni session ni planche ; en wing, pas de planche de surf.
+  const discChamp = document.getElementById("j-disc");
+  const blocPlanche = document.getElementById("j-bloc-planche");
+  const majChamps = () => {
+    blocSess.style.display = typeChamp.value === "observation" ? "none" : "";
+    blocPlanche.style.display =
+      typeChamp.value === "session" && discChamp.value === "surf" ? "" : "none";
+  };
+  typeChamp.addEventListener("input", majChamps);
+  discChamp.addEventListener("input", majChamps);
+  majChamps();
+
+  ["j-jour", "j-heure", "j-spot", "j-disc", "j-type", "j-planche", "j-com"].forEach(id =>
     document.getElementById(id).addEventListener("input", rafraichirLigne));
 
   const lien = document.getElementById("j-ouvrir");
