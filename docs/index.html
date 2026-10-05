@@ -306,7 +306,9 @@
 </details>
 
 <footer>
-  Houle et vent : Open-Meteo (modèles EWAM et GWAM).
+  Mesures en temps réel : bouée houlographe d'Ambleteuse,
+  <a href="https://www.geodunes.fr/acces-aux-donnees-temps-reel-de-la-bouee-dambleteuse-62/">Géodunes</a>.
+  <br>Houle et vent : Open-Meteo (modèles EWAM et GWAM).
   Données de marée fournies par <a href="https://api-maree.fr/">api-maree.fr</a>
   sous licence CC BY, calculées à partir de composantes harmoniques
   Ifremer / PREVIMER, elles-mêmes sous licence CC BY.
@@ -807,6 +809,21 @@ function afficher() {
     + `<br><small>Houle attendue de ${spot.bouee}, optimum de marée surf
        ${quandMaree}. Sessions de ${duree} h. Carrés pâles = prévision moins
        fiable.</small>`;
+  // Mesure réelle de la bouée d'Ambleteuse, pour Wimereux seulement : elle
+  // est mouillée à quelques kilomètres au nord du spot.
+  const b = DONNEES.bouee_ambleteuse;
+  if (spot.cle === "wimereux" && b && b.hauteur_m != null) {
+    const age = Math.round((Date.now() - new Date(b.instant).getTime()) / 60000);
+    const quand = age < 90 ? `il y a ${Math.max(age, 0)} min` : `il y a ${Math.round(age / 60)} h`;
+    const v = x => String(x).replace(".", ",");
+    detail.innerHTML = `<span style="${age > 360 ? "opacity:.6" : ""}"><b>En ce moment</b>,
+      bouée d'Ambleteuse ${quand} : <b>${v(b.hauteur_m.toFixed(2))} m à ${v(b.periode_pic_s.toFixed(1))} s</b>,
+      du ${Math.round(b.direction_pic)}° ${rose(b.direction_pic)}${b.temp_eau != null
+        ? `, eau ${v(b.temp_eau.toFixed(1))} °C` : ""}${b.vent_kt != null
+        ? `, vent estimé ${Math.round(b.vent_kt)} nds` : ""}
+      · <a href="${b.source}" target="_blank" rel="noopener noreferrer"
+           style="color:inherit">Géodunes</a></span><br>` + detail.innerHTML;
+  }
   contenu.append(detail);
 
   const resumes = {};
@@ -999,6 +1016,7 @@ function normaliser(data) {
 }
 
 function rendre(data) {
+  data.bouee_ambleteuse ??= null;
   DONNEES = normaliser(data);
   const maj = new Date(data.genere_le);
   document.getElementById("maj").textContent =
