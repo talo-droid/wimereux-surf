@@ -247,8 +247,11 @@ Android reçoit la notification directement.
 4. Dans le dépôt, *Settings → Secrets and variables → Actions → Secrets*,
    crée `NTFY_TOPIC` avec ce même mot.
 
-Seuils, en *variables* du dépôt (pas en secrets) : `SEUIL_ALERTE` pour le surf
-et `SEUIL_ALERTE_WING` pour la wing, 3 par défaut tous les deux.
+Seuil, en *variable* du dépôt (pas en secret) : `SEUIL_ALERTE`, 3 par défaut.
+Seul le surf déclenche des notifications : la wing reste notée sur la page,
+mais ne prévient plus. Pour la réactiver, ajoute `("wing", "session_wing")` à
+`DISCIPLINES_ALERTE` dans `alerter.py` ; son seuil se règle alors avec
+`SEUIL_ALERTE_WING`.
 
 `alerter.py` raisonne par meilleure session de chaque jour, et envoie quatre
 sortes de lignes :

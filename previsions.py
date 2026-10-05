@@ -117,7 +117,7 @@ SPOTS = {
         # contre la mesure et contre l'œil.
         "liens": {
             "bouee": "https://wavenet.cefas.co.uk/details/HASTINGSWN/INT",
-            "webcam": "https://www.youtube.com/watch?v=vBqzSfNFq-k",
+            "webcam": "https://www.youtube.com/watch?v=Cwg88b-9rlI",
             "previsions": "https://www.windguru.cz/48354",
         },
     },

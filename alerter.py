@@ -46,6 +46,11 @@ HAUSSE_NOTABLE = 0.75     # gain qui justifie une nouvelle alerte
 MARGE_ANNULATION = 0.5    # sous seuil - marge, une session annoncée est annulée
 HORIZON_IMMEDIAT_H = 3    # « c'est bon maintenant » : départ dans ce délai
 
+# Disciplines qui déclenchent une notification. La wing reste notée sur la
+# page, mais ne prévient plus. Pour la réactiver, ajoute
+# ("wing", "session_wing") à cette liste.
+DISCIPLINES_ALERTE = (("surf", "session_surf"),)
+
 JOURS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
 
 
@@ -130,7 +135,7 @@ def main() -> int:
         duree = spot.get("duree_session_h", 2)
         depart_min = ref + timedelta(minutes=spot.get("trajet_min", 0))
 
-        for disc, attr in (("surf", "session_surf"), ("wing", "session_wing")):
+        for disc, attr in DISCIPLINES_ALERTE:
             seuil = seuils[disc]
             sessions = meilleures_sessions(spot, attr, depart_min)
 
