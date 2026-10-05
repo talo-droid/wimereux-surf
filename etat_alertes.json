@@ -1,4 +1,9 @@
 {
- "annonces": {},
+ "annonces": {
+  "calais|wing|2026-10-08": {
+   "note": 3.02,
+   "debut": "2026-10-08T14:00:00"
+  }
+ },
  "immediats": []
 }
