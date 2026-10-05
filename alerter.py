@@ -98,6 +98,8 @@ def ligne(etiquette, nom, disc, debut, note, duree, c=None):
             if pls:
                 detail += ", " + " ou ".join(
                     pl["nom"] + ("" if pl.get("possedee", True) else "*") for pl in pls)
+            if c.get("equipement"):
+                detail += ", " + c["equipement"]["combi"]
         else:
             detail = f"  {round(c['vitesse_kt'])}-{round(c['rafales_kt'])} nds"
             if c.get("aile_m2"):

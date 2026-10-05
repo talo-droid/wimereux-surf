@@ -252,6 +252,19 @@ VOLUME_SELON_HAUTEUR = [(0.4, 47.0), (0.6, 44.0), (0.75, 38.0), (0.9, 35.0),
 # du volume en plus pour garder de la vitesse.
 SUPPLEMENT_MER_MOLLE = [(4.5, 4.0), (6.0, 2.0), (7.0, 0.0)]
 
+# --- Équipement néoprène ---------------------------------------------------
+# On part de la température de l'eau, puis on la « refroidit » quand l'air
+# ressenti est plus froid que l'eau et quand le vent souffle : c'est hors de
+# l'eau, en attendant les séries ou en wing, qu'on a froid.
+#   malus air  : 0,25 °C par degré d'écart eau − air ressenti, 3 °C au plus
+#   malus vent : 0,1 °C par nœud au-delà de 12 nœuds, 2 °C au plus
+# Chaque liste donne (seuil de température effective, équipement), du plus
+# chaud au plus froid : on retient la première ligne dont le seuil est atteint.
+COMBINAISONS = [(21, "shorty 2 mm"), (16, "3/2"), (13, "4/3"), (10, "5/4"), (-99, "6/5")]
+CHAUSSONS = [(13, None), (10, "3 mm"), (7, "5 mm"), (-99, "7 mm")]
+GANTS = [(11, None), (8, "3 mm"), (-99, "5 mm")]
+SEUIL_CAGOULE = 9.0
+
 # --- Session ---------------------------------------------------------------
 # On surfe des sessions, pas des heures : la note de session est la moyenne
 # de deux heures consécutives de jour.
@@ -641,6 +654,42 @@ def score_wing(sp, vitesse_kt, rafales_kt, direction_deg, fraction_maree,
     return appliquer_orage(round(n, 2), orage), detail
 
 
+# ---------- Équipement ----------
+
+def equipement(temp_eau, temp_ressentie, vent_kt):
+    """
+    Épaisseur de combinaison et accessoires conseillés. Renvoie None si la
+    température de l'eau manque : mieux vaut ne rien conseiller que deviner.
+    """
+    if temp_eau is None:
+        return None
+    malus_air = _borne((temp_eau - temp_ressentie) * 0.25, 0.0, 3.0) if temp_ressentie is not None else 0.0
+    malus_vent = _borne(((vent_kt or 0) - 12) * 0.1, 0.0, 2.0)
+    t = temp_eau - malus_air - malus_vent
+    choisir = lambda table: next(v for seuil, v in table if t >= seuil)
+    return {
+        "temp_effective": round(t, 1),
+        "combi": choisir(COMBINAISONS),
+        "chaussons": choisir(CHAUSSONS),
+        "gants": choisir(GANTS),
+        "cagoule": t < SEUIL_CAGOULE,
+    }
+
+
+def texte_equipement(eq) -> str:
+    """« 5/4 · chaussons 5 mm · gants 3 mm · cagoule »."""
+    if not eq:
+        return ""
+    morceaux = [eq["combi"]]
+    if eq["chaussons"]:
+        morceaux.append(f"chaussons {eq['chaussons']}")
+    if eq["gants"]:
+        morceaux.append(f"gants {eq['gants']}")
+    if eq["cagoule"]:
+        morceaux.append("cagoule")
+    return " · ".join(morceaux)
+
+
 # ---------- Planches ----------
 
 def planches_conseillees(hauteur_m, periode_s):
@@ -849,7 +898,7 @@ def recuperer_courant(sp, heures: int) -> dict[datetime, dict]:
         donnees = _get_json(
             "https://marine-api.open-meteo.com/v1/marine",
             {"latitude": sp["point_courant"][0], "longitude": sp["point_courant"][1],
-             "hourly": "ocean_current_velocity,ocean_current_direction",
+             "hourly": "ocean_current_velocity,ocean_current_direction,sea_surface_temperature",
              "timezone": FUSEAU, "forecast_hours": min(heures, 168),
              "cell_selection": "sea"},
         )
@@ -860,6 +909,7 @@ def recuperer_courant(sp, heures: int) -> dict[datetime, dict]:
                 "vitesse_kt": (round(h["ocean_current_velocity"][i] * 0.539957, 2)
                                if h["ocean_current_velocity"][i] is not None else None),
                 "direction_deg": h["ocean_current_direction"][i],
+                "temp_eau": (h.get("sea_surface_temperature") or [None] * (i + 1))[i],
             }
             for i, t in enumerate(h["time"])
         }
@@ -891,7 +941,8 @@ def recuperer_vent(sp, heures: int) -> dict[datetime, dict]:
     lat, lon = sp.get("point_vent", sp["point_spot"])
     tous = MODELES_VENT + MODELES_VENT_RELAIS
     variables = ("wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
-                 "weather_code,cape,lifted_index,precipitation_probability")
+                 "weather_code,cape,lifted_index,precipitation_probability,"
+                 "temperature_2m,apparent_temperature")
     try:
         donnees = _get_json(
             "https://api.open-meteo.com/v1/forecast",
@@ -969,6 +1020,8 @@ def recuperer_vent(sp, heures: int) -> dict[datetime, dict]:
             "cape": indice("cape"),
             "lifted_index": indice("lifted_index"),
             "proba_pluie": indice("precipitation_probability"),
+            "temp_air": indice("temperature_2m"),
+            "temp_ressentie": indice("apparent_temperature"),
         }
     return resultat
 
@@ -1114,6 +1167,11 @@ class Creneau:
     lifted_index: float | None
     proba_pluie: float | None
     risque_orage: str
+    # températures et équipement
+    temp_eau: float | None
+    temp_air: float | None
+    temp_ressentie: float | None
+    equipement: dict | None
     # confiance
     echeance_h: float
     fiabilite: float
@@ -1271,6 +1329,12 @@ def construire_creneaux(sp, heures: int):
             courant_effet=libelle_courant,
             cape=v.get("cape"), lifted_index=v.get("lifted_index"),
             proba_pluie=v.get("proba_pluie"), risque_orage=orage,
+            temp_eau=(round(c["temp_eau"], 1) if c.get("temp_eau") is not None else None),
+            temp_air=(round(v["temp_air"], 1) if v.get("temp_air") is not None else None),
+            temp_ressentie=(round(v["temp_ressentie"], 1)
+                            if v.get("temp_ressentie") is not None else None),
+            equipement=equipement(c.get("temp_eau"), v.get("temp_ressentie"),
+                                  v["vitesse_kt"]),
             echeance_h=round(echeance, 1),
             fiabilite=fiabilite(echeance, v.get("ecart_vent_kt"), h["ecart_modeles_m"]),
             note_houle=n_houle, note_position=n_pos, note_stabilite=n_stab,
@@ -1291,6 +1355,28 @@ def _direction_moyenne(directions) -> float:
     x = sum(math.cos(math.radians(d)) for d in directions)
     y = sum(math.sin(math.radians(d)) for d in directions)
     return math.degrees(math.atan2(y, x)) % 360
+
+
+def resume_temperatures(j) -> dict:
+    """
+    Températures du jour et équipement prudent : l'eau la plus froide, l'air
+    ressenti le plus froid et le vent le plus fort de la journée, pour ne pas
+    se retrouver sous-équipé en fin de session.
+    """
+    eaux = [c.temp_eau for c in j if c.temp_eau is not None]
+    airs = [c.temp_air for c in j if c.temp_air is not None]
+    ressentis = [c.temp_ressentie for c in j if c.temp_ressentie is not None]
+    if not eaux:
+        return {"temp_eau": None, "temp_air": None, "equipement": None,
+                "equipement_texte": ""}
+    eq = equipement(min(eaux), min(ressentis) if ressentis else None,
+                    max(c.vitesse_kt for c in j))
+    return {
+        "temp_eau": round(sum(eaux) / len(eaux), 1),
+        "temp_air": [round(min(airs)), round(max(airs))] if airs else None,
+        "equipement": eq,
+        "equipement_texte": texte_equipement(eq),
+    }
 
 
 def resumer_journees(creneaux, extrema, soleil) -> list[dict]:
@@ -1328,6 +1414,7 @@ def resumer_journees(creneaux, extrema, soleil) -> list[dict]:
             "energie_max_kwm": max(c.energie_kwm for c in j),
             "xi_max": max(c.xi for c in j),
             "fiabilite": round(sum(c.fiabilite for c in j) / len(j), 2),
+            **resume_temperatures(j),
             "vent_kt": [min(c.vitesse_kt for c in j), max(c.vitesse_kt for c in j)],
             "rafales_max_kt": max(c.rafales_kt for c in j),
             "dir_vent": round(_direction_moyenne([c.dir_vent for c in j])),

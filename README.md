@@ -74,6 +74,15 @@ Les planches se suivant en volume, la paire proposée contient toujours au
 moins une planche que tu possèdes. Une planche pas encore achetée est marquée
 d'un astérisque.
 
+**Équipement.** Chaque créneau indique l'épaisseur de combinaison et les
+accessoires conseillés. On part de la température de l'eau (au large du
+spot), refroidie de 0,25 °C par degré d'écart quand l'air ressenti est plus
+froid que l'eau (3 °C au plus) et de 0,1 °C par nœud de vent au-delà de 12
+(2 °C au plus). La température effective donne : 3/2 dès 16 °C, 4/3 dès 13,
+5/4 dès 10, 6/5 en dessous ; chaussons sous 13 °C, gants sous 11, cagoule
+sous 9. Le résumé du jour est prudent : il retient l'eau la plus froide,
+l'air ressenti le plus froid et le vent le plus fort de la journée.
+
 **Sessions.** On note des heures, mais on surfe des sessions : la « meilleure
 session » est la meilleure fenêtre de deux heures consécutives de jour.
 
@@ -137,6 +146,7 @@ Réglages communs :
 | `WING_RAFALES`, `WING_DIRECTION`, `WING_MAREE`, `WING_MER` | autres courbes de la wing |
 | `PLANCHES` | ton quiver de surf : nom, volume, et `possedee` à passer à `True` le jour de l'achat |
 | `VOLUME_SELON_HAUTEUR`, `SUPPLEMENT_MER_MOLLE` | règle du volume idéal, à recaler avec le journal |
+| `COMBINAISONS`, `CHAUSSONS`, `GANTS`, `SEUIL_CAGOULE` | barème d'équipement selon la température effective |
 | `DUREE_SESSION_H` | durée d'une session, 2 h par défaut |
 | `FIABILITE_ECHEANCE` | baisse de confiance avec l'échéance |
 | `CALIBRATION_HOULE` | facteur correctif de hauteur |
