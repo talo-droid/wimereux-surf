@@ -316,6 +316,10 @@
   effondre la note quand le vent pousse vers le large. Les colonnes éclairées
   marquent la meilleure session surf du jour, le soulignement la meilleure
   session wing. Un carré pâle signale une prévision lointaine ou disputée.
+  <br>Équipement : à partir de la température de l'eau, refroidie quand l'air
+  ressenti est plus froid qu'elle et quand le vent dépasse 12 nœuds. Le résumé
+  du jour retient l'eau la plus froide, l'air le plus froid et le vent le plus
+  fort, pour ne pas finir la session sous-équipé.
   <br>Planche : les deux Seaside dont le volume approche le plus le volume
   idéal pour la houle du moment ; un astérisque signale une planche pas encore
   dans ton quiver.
@@ -607,6 +611,16 @@ function tableauJournee(creneaux, dureeSession) {
   return cadre;
 }
 
+// « 5/4 · chaussons 5 mm · gants 3 mm · cagoule », calculé par le script.
+function texteEquipement(eq) {
+  if (!eq) return "";
+  const m = [eq.combi];
+  if (eq.chaussons) m.push(`chaussons ${eq.chaussons}`);
+  if (eq.gants) m.push(`gants ${eq.gants}`);
+  if (eq.cagoule) m.push("cagoule");
+  return m.join(" · ");
+}
+
 function apercuJournee(r) {
   const p = el("p", "apercu marge");
   const marees = r.marees
@@ -622,6 +636,13 @@ function apercuJournee(r) {
     · wing ${r.meilleure_note_wing > 0
       ? `<b>${r.meilleure_heure_wing.slice(0, 2)}h</b> (${r.meilleure_note_wing.toFixed(1)})`
       : `<b>—</b>`}`;
+  // Températures du jour et équipement, conseillé de façon prudente : eau la
+  // plus froide, air ressenti le plus froid et vent le plus fort de la journée.
+  if (r.temp_eau != null) {
+    const air = r.temp_air ? ` · air ${r.temp_air[0]} à ${r.temp_air[1]} °C` : "";
+    p.innerHTML += `<br>eau ${String(r.temp_eau).replace(".", ",")} °C${air}
+      &nbsp;|&nbsp; <b>${texteEquipement(r.equipement)}</b>`;
+  }
   p.title = r.rtr > 8
     ? "RTR élevé : la marée domine les vagues, la zone de surf se définit mal"
     : "RTR modéré : la plage reste dominée par les vagues";
@@ -772,14 +793,16 @@ function afficher() {
       ? `Surf : <b>${plage(bSurf)}</b>, ${bSurf.session_surf.toFixed(1)}/5 —
          ${bSurf.hauteur_m.toFixed(2)} m à ${bSurf.tpeak_s.toFixed(1)} s,
          vent ${Math.round(bSurf.vitesse_kt)} nds ${rose(bSurf.dir_vent)}${
-           (bSurf.planches || []).length ? `, Seaside ${texteplanches(bSurf)}` : ""}${orage(bSurf)}`
+           (bSurf.planches || []).length ? `, Seaside ${texteplanches(bSurf)}` : ""}${
+           bSurf.equipement ? `, ${texteEquipement(bSurf.equipement)}` : ""}${orage(bSurf)}`
       : `Surf : rien de surfable sur la période.`)
     + `<br>` +
     (bWing && bWing.session_wing > 0
       ? `Wing : <b>${plage(bWing)}</b>, ${bWing.session_wing.toFixed(1)}/5 —
          ${Math.round(bWing.vitesse_kt)} à ${Math.round(bWing.rafales_kt)} nds
          ${rose(bWing.dir_vent)}${bWing.aile_m2
-           ? `, aile ${String(bWing.aile_m2).replace(".", ",")} m²` : ""}${orage(bWing)}`
+           ? `, aile ${String(bWing.aile_m2).replace(".", ",")} m²` : ""}${
+           bWing.equipement ? `, ${texteEquipement(bWing.equipement)}` : ""}${orage(bWing)}`
       : `Wing : pas de fenêtre praticable sur la période.`)
     + `<br><small>Houle attendue de ${spot.bouee}, optimum de marée surf
        ${quandMaree}. Sessions de ${duree} h. Carrés pâles = prévision moins
@@ -962,12 +985,14 @@ function normaliser(data) {
       c.session_wing ??= null;
       c.fiabilite ??= 1;
       c.wing_detail ??= {};
+      c.equipement ??= null;
     });
     sp.journees.forEach(r => {
       r.meilleure_note ??= 0;
       r.meilleure_heure ??= "";
       r.meilleure_note_wing ??= 0;
       r.meilleure_heure_wing ??= "";
+      r.temp_eau ??= null;
     });
   });
   return data;
