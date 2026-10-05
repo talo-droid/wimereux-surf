@@ -44,21 +44,21 @@
   h1, h2 { font-weight: 500; margin: 0; }
   .marge { padding-inline: 1rem; }
 
+  /* En-tête compact : logo, liens et heure en colonne à gauche, cartes de
+     spot à droite, sur une seule bande. */
   .barre {
-    display: flex; align-items: flex-end; justify-content: space-between;
-    gap: 1rem; padding: 0.7rem 1rem 0.6rem;
-    border-bottom: 1px solid var(--trait);
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.5rem; align-items: center; padding: 0.7rem 0.8rem 0.5rem;
   }
+  .identite { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 4.2rem; }
   .barre h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; margin: 0; }
-  /* Pixel art : pas de lissage, les carrés doivent rester des carrés. */
-  .lapin { display: block; height: 58px; width: 61px; }
-  .coin { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; }
-  .maj { color: var(--galet); font-size: 0.82rem; }
+  .lapin { display: block; height: 48px; width: 51px; }
+  .maj { color: var(--galet); font-size: 0.7rem; line-height: 1.2; text-align: center; }
 
   /* Raccourcis vers la bouée, la webcam et Windguru du spot affiché. */
-  .liens { display: flex; gap: 0.55rem; }
+  .liens { display: flex; gap: 0.4rem; }
   .liens a {
-    display: block; width: 24px; height: 24px; line-height: 0;
+    display: block; width: 18px; height: 18px; line-height: 0;
     opacity: 0.75;
   }
   .liens a:hover, .liens a:focus-visible { opacity: 1; }
@@ -66,12 +66,11 @@
 
   /* ---- sélecteur de spot : pavillon ---- */
   .spots {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
-    padding: 0.9rem 1rem 0.4rem;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.4rem;
   }
   .carte-spot {
-    display: flex; gap: 0.6rem; align-items: stretch;
-    padding: 0.5rem 0.6rem 0.5rem 0; min-width: 0;
+    display: flex; gap: 0.4rem; align-items: stretch;
+    padding: 0.4rem 0.4rem 0.4rem 0; min-width: 0;
     background: transparent; border: none; cursor: pointer;
     font: inherit; color: inherit; text-align: left;
   }
@@ -86,20 +85,21 @@
   .carte-spot .mat i { position: absolute; left: 0; right: 0; bottom: 0; display: block; }
   .carte-spot .corps { min-width: 0; flex: 1; }
   .carte-spot .nom {
-    font-family: Fraunces, Georgia, serif; font-size: 1.05rem;
-    display: block; line-height: 1.15; color: var(--galet); margin-bottom: 0.15rem;
+    font-family: Fraunces, Georgia, serif; font-size: 1rem;
+    display: block; line-height: 1.15; color: var(--galet); margin-bottom: 0.1rem;
   }
   .carte-spot[aria-pressed="true"] .nom { color: var(--ardoise); }
   .carte-spot .disc {
-    display: flex; align-items: baseline; gap: 0.35rem;
-    font-size: 0.76rem; color: var(--galet); line-height: 1.35;
+    display: flex; align-items: baseline; gap: 0.25rem;
+    font-size: 0.72rem; color: var(--galet); line-height: 1.35;
     white-space: nowrap; overflow: hidden;
   }
   .carte-spot .disc b {
-    font-family: Fraunces, Georgia, serif; font-size: 1.15rem; font-weight: 400;
-    font-variant-numeric: tabular-nums; min-width: 1.7rem;
+    font-family: Fraunces, Georgia, serif; font-size: 1.05rem; font-weight: 400;
+    font-variant-numeric: tabular-nums; min-width: 1.4rem;
   }
-  .carte-spot .disc .qui { width: 2rem; }
+  .carte-spot .disc .qui { width: 1.6rem; flex: none; }
+  .carte-spot .disc span:last-child { overflow: hidden; text-overflow: ellipsis; }
   .carte-spot .quand {
     font-size: 0.76rem; color: var(--galet); display: block;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -249,11 +249,12 @@
 <body>
 
 <div class="barre">
+  <div class="identite">
   <h1><svg class="lapin" viewBox="16 18 86 82" role="img" aria-label="Côte d'Opale, conditions de surf"><g transform="translate(-8.3 1.8) scale(1.12)"><path d="M27 78 Q35 74.5 43 78 T59 78 T75 78 T91 78" fill="none" stroke="#123239" stroke-width="1.5" stroke-linecap="round"/><path d="M36 84 Q44 81 52 84 T68 84 T80 84" fill="none" stroke="#123239" stroke-width="1.2" stroke-linecap="round" opacity=".5"/><ellipse cx="60" cy="71.5" rx="36" ry="4" transform="rotate(-4 60 71.5)" fill="#DCE4E3" stroke="#123239" stroke-width="1.5"/><g fill="#123239" stroke="#123239" stroke-width="3"><ellipse cx="63" cy="31" rx="4" ry="12" transform="rotate(-28 63 31)"/></g><g fill="#DCE4E3"><ellipse cx="63" cy="31" rx="4" ry="12" transform="rotate(-28 63 31)"/></g><g fill="#123239" stroke="#123239" stroke-width="3"><ellipse cx="70" cy="30" rx="4.2" ry="12.5" transform="rotate(-14 70 30)"/><ellipse cx="54" cy="56" rx="21" ry="13"/><ellipse cx="73" cy="49" rx="12" ry="10.5"/><ellipse cx="47" cy="67" rx="8" ry="3"/><ellipse cx="70" cy="65.5" rx="4.5" ry="2.6"/></g><g fill="#DCE4E3"><ellipse cx="70" cy="30" rx="4.2" ry="12.5" transform="rotate(-14 70 30)"/><ellipse cx="54" cy="56" rx="21" ry="13"/><ellipse cx="73" cy="49" rx="12" ry="10.5"/><ellipse cx="47" cy="67" rx="8" ry="3"/><ellipse cx="70" cy="65.5" rx="4.5" ry="2.6"/></g><circle cx="77" cy="47" r="1.9" fill="#123239"/><circle cx="84.6" cy="50.3" r="1.2" fill="#123239"/></g></svg></h1>
-  <div class="coin">
     <div class="liens" id="liens"></div>
     <span class="maj" id="maj"></span>
   </div>
+  <div class="spots" id="spots"></div>
 </div>
 
 <main id="contenu"><p class="vide">Chargement des conditions…</p></main>
@@ -686,7 +687,9 @@ function meilleurePour(spot, attr) {
 
 function heureCourte(instant) {
   const d = new Date(instant);
-  return `${JOURS[d.getDay()].slice(0, 3)} ${d.getDate()}, ${String(d.getHours()).padStart(2, "0")}h`;
+  // Format court : la prévision ne couvre que quelques jours, le jour de la
+  // semaine suffit à les distinguer, et l'heure reste lisible sur téléphone.
+  return `${JOURS[d.getDay()].slice(0, 3)} ${String(d.getHours()).padStart(2, "0")}h`;
 }
 
 function carteSpot(spot, index) {
@@ -730,9 +733,9 @@ function afficher() {
   contenu.innerHTML = "";
 
   // Sélecteur : les deux spots côte à côte, avec leur meilleur créneau.
-  const barre = el("div", "spots");
+  const barre = document.getElementById("spots");
+  barre.innerHTML = "";
   DONNEES.spots.forEach((sp, i) => barre.append(carteSpot(sp, i)));
-  contenu.append(barre);
 
   const spot = DONNEES.spots[SPOT_ACTIF];
   majLiens(spot);
