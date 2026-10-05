@@ -265,6 +265,15 @@ CHAUSSONS = [(13, None), (10, "3 mm"), (7, "5 mm"), (-99, "7 mm")]
 GANTS = [(11, None), (8, "3 mm"), (-99, "5 mm")]
 SEUIL_CAGOULE = 9.0
 
+# --- Bouée d'Ambleteuse (Géodunes) -----------------------------------------
+# Bouée Sofar Spotter mouillée au large d'Ambleteuse, à quelques kilomètres au
+# nord de Wimereux. Ses mesures servent à afficher les conditions du moment et
+# à constituer, calcul après calcul, un historique « prévu contre mesuré ».
+BOUEE_AMBLETEUSE = "https://www.geodunes.fr/wp-json/geodunes/v1/sofar/bouee1/latest"
+PAGE_BOUEE_AMBLETEUSE = ("https://www.geodunes.fr/"
+                         "acces-aux-donnees-temps-reel-de-la-bouee-dambleteuse-62/")
+OBSERVATIONS = Path(__file__).parent / "observations" / "ambleteuse.csv"
+
 # --- Session ---------------------------------------------------------------
 # On surfe des sessions, pas des heures : la note de session est la moyenne
 # de deux heures consécutives de jour.
@@ -816,7 +825,9 @@ def _get_json(url: str, params: dict) -> dict:
 
     requete = urllib.request.Request(
         f"{url}?{urllib.parse.urlencode(params)}",
-        headers={"User-Agent": "wimereux-surf/1.0"},
+        # Un identifiant qui dit d'où viennent les requêtes, et où trouver
+        # leur auteur.
+        headers={"User-Agent": "wimereux-surf/1.0 (+https://github.com/talo-droid/wimereux-surf)"},
     )
     hote = urllib.parse.urlparse(url).netloc
     derniere = None
@@ -1432,7 +1443,74 @@ def resumer_journees(creneaux, extrema, soleil) -> list[dict]:
     return resumes
 
 
-def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None) -> None:
+def recuperer_bouee():
+    """
+    Dernière mesure de la bouée d'Ambleteuse, ou None si elle est muette :
+    la bouée a ses interruptions (maintenance, mise à jour), l'outil doit
+    continuer sans elle.
+    """
+    try:
+        d = _get_json(BOUEE_AMBLETEUSE, {})["data"]
+        w = d["waves"][-1]
+        t = d.get("surfaceTemp") or []
+        v = d.get("wind") or []
+        instant = datetime.fromisoformat(w["timestamp"].replace("Z", "+00:00"))
+        if _ZONE:
+            instant = instant.astimezone(_ZONE)
+        return {
+            "instant": instant.isoformat(timespec="minutes"),
+            "hauteur_m": w.get("significantWaveHeight"),
+            "periode_pic_s": w.get("peakPeriod"),
+            "periode_moy_s": w.get("meanPeriod"),
+            "direction_pic": w.get("peakDirection"),
+            "direction_moy": w.get("meanDirection"),
+            "etalement": w.get("peakDirectionalSpread"),
+            "temp_eau": t[-1].get("degrees") if t else None,
+            # Vent estimé par la bouée à partir des vagues, en m/s : converti
+            # en nœuds. Ce n'est pas un anémomètre.
+            "vent_kt": round(v[-1]["speed"] * 1.944, 1) if v and v[-1].get("speed") is not None else None,
+            "vent_dir": v[-1].get("direction") if v else None,
+            "latitude": w.get("latitude"), "longitude": w.get("longitude"),
+            "source": PAGE_BOUEE_AMBLETEUSE,
+        }
+    except Exception as e:
+        print(f"Bouée d'Ambleteuse indisponible : {e}", file=sys.stderr)
+        return None
+
+
+def archiver_observation(bouee, creneaux_wimereux) -> None:
+    """
+    Ajoute la mesure à observations/ambleteuse.csv, à côté de ce que le
+    modèle prévoyait pour la même heure. Une ligne par heure de mesure : la
+    même mesure relue au calcul suivant n'est pas dupliquée.
+    """
+    if not bouee:
+        return
+    OBSERVATIONS.parent.mkdir(parents=True, exist_ok=True)
+    instant = bouee["instant"][:13]          # à l'heure près
+    if OBSERVATIONS.exists() and any(l.startswith(instant) for l in
+                                     OBSERVATIONS.read_text(encoding="utf-8").splitlines()):
+        return
+    prevu = next((c for c in creneaux_wimereux
+                  if c.instant.isoformat()[:13] == instant), None)
+    champs = ["instant", "hs_mesure", "tp_mesure", "tm_mesure", "dir_mesure",
+              "etalement", "eau_mesure", "vent_estime_kt",
+              "hs_prevu", "tp_prevu", "dir_prevu", "eau_prevue", "vent_prevu_kt"]
+    ligne = [instant, bouee["hauteur_m"], bouee["periode_pic_s"], bouee["periode_moy_s"],
+             bouee["direction_pic"], bouee["etalement"], bouee["temp_eau"], bouee["vent_kt"],
+             prevu.hauteur_m if prevu else "", prevu.tpeak_s if prevu else "",
+             prevu.dir_houle if prevu else "", prevu.temp_eau if prevu else "",
+             prevu.vitesse_kt if prevu else ""]
+    nouveau = not OBSERVATIONS.exists()
+    with OBSERVATIONS.open("a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if nouveau:
+            w.writerow(champs)
+        w.writerow(["" if x is None else x for x in ligne])
+
+
+def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None,
+                  bouee: dict | None = None) -> None:
     """
     Un seul fichier pour les deux spots. La page charge tout d'un coup et
     bascule de l'un à l'autre sans nouvelle requête.
@@ -1441,6 +1519,7 @@ def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None) ->
     charge = {
         # Avec le décalage explicite : le navigateur sait alors le convertir.
         "genere_le": maintenant().isoformat(timespec="minutes"),
+        "bouee_ambleteuse": bouee,
         # Le quiver, pour que la page propose les mêmes planches au journal.
         "planches": PLANCHES,
         # Ordre fixe, celui de SPOTS. Un spot en échec reste présent avec sa
@@ -1575,7 +1654,10 @@ def main() -> int:
         return 1
 
     if args.json:
-        exporter_json(resultats, args.json, erreurs)
+        bouee = recuperer_bouee()
+        if "wimereux" in resultats:
+            archiver_observation(bouee, resultats["wimereux"]["creneaux"])
+        exporter_json(resultats, args.json, erreurs, bouee)
         total = sum(len(r["creneaux"]) for r in resultats.values())
         print(f"{total} créneaux sur {len(resultats)} spot(s) "
               f"écrits dans {args.json}")

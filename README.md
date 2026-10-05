@@ -155,6 +155,21 @@ Réglages communs :
 Les courbes s'écrivent comme des listes de points `(valeur, note)` reliés par
 des segments : pour déplacer un seuil, on déplace un point.
 
+## La bouée d'Ambleteuse
+
+La bouée houlographe de Géodunes, mouillée au large d'Ambleteuse à quelques
+kilomètres au nord de Wimereux, est lue à chaque calcul. Sa dernière mesure
+s'affiche en haut de la page de Wimereux (« En ce moment »), avec la source.
+
+Chaque mesure est aussi archivée dans `observations/ambleteuse.csv`, à côté de
+ce que le modèle prévoyait pour la même heure : hauteur, période, direction,
+température de l'eau et vent. C'est la base de la calibration à venir — dans
+quelques semaines, ce fichier dira de combien le modèle se trompe devant chez
+toi, et dans quelles conditions. Une même heure n'est archivée qu'une fois.
+
+Si la bouée est muette (maintenance, perte de signal), l'outil continue sans
+elle.
+
 ## Le journal
 
 Tous les réglages ci-dessus sont des hypothèses raisonnables, pas des mesures.
