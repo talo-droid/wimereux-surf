@@ -170,6 +170,21 @@ toi, et dans quelles conditions. Une même heure n'est archivée qu'une fois.
 Si la bouée est muette (maintenance, perte de signal), l'outil continue sans
 elle.
 
+### Alerte « bonne surprise »
+
+À chaque calcul, la mesure de la bouée est notée avec le barème surf : la houle
+mesurée remplace la houle prévue, le vent, la marée et le risque d'orage restent
+ceux de l'heure. Si cette note mesurée atteint 3,5 et dépasse d'au moins un
+point la note que la prévision donnait pour la même heure, une notification
+part en priorité haute : les conditions sont meilleures que prévu, maintenant.
+
+Elle ne part que pour une mesure de moins de deux heures, de jour, et une seule
+fois par épisode (pas de nouvelle alerte de ce type pendant six heures). Les
+seuils se règlent en tête d'`alerter.py` (`SEUIL_SURPRISE`, `ECART_SURPRISE`).
+
+Le calcul tourne toutes les trois heures : l'alerte peut donc arriver jusqu'à
+trois heures après le début de l'embellie.
+
 ## Le journal
 
 Tous les réglages ci-dessus sont des hypothèses raisonnables, pas des mesures.

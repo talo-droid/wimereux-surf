@@ -46,6 +46,13 @@ HAUSSE_NOTABLE = 0.75     # gain qui justifie une nouvelle alerte
 MARGE_ANNULATION = 0.5    # sous seuil - marge, une session annoncée est annulée
 HORIZON_IMMEDIAT_H = 3    # « c'est bon maintenant » : départ dans ce délai
 
+# « Bonne surprise » : la bouée d'Ambleteuse mesure des conditions très
+# favorables que la prévision n'avait pas vues.
+SEUIL_SURPRISE = 3.5      # note surf de la mesure à partir de laquelle on prévient
+ECART_SURPRISE = 1.0      # avance minimale de la mesure sur la prévision
+AGE_MAX_MESURE_H = 2      # une mesure plus vieille n'est plus « maintenant »
+PAUSE_SURPRISE_H = 6      # pas de nouvelle alerte surprise avant ce délai
+
 # Disciplines qui déclenchent une notification. La wing reste notée sur la
 # page, mais ne prévient plus. Pour la réactiver, ajoute
 # ("wing", "session_wing") à cette liste.
@@ -65,11 +72,12 @@ def charger_etat() -> dict:
         if isinstance(etat, dict):
             etat.setdefault("annonces", {})
             etat.setdefault("immediats", [])
+            etat.setdefault("surprise", None)
             return etat
     except Exception:
         pass
     # Ancien format (simple liste) ou fichier absent : on repart de zéro.
-    return {"annonces": {}, "immediats": []}
+    return {"annonces": {}, "immediats": [], "surprise": None}
 
 
 def meilleures_sessions(spot, attr, depart_min):
@@ -112,6 +120,10 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--seuil", type=float, default=3.0, help="seuil surf")
     p.add_argument("--seuil-wing", type=float, default=3.0, help="seuil wing")
+    p.add_argument("--seuil-surprise", type=float, default=SEUIL_SURPRISE,
+                   help="note mesurée à la bouée pour l'alerte surprise")
+    p.add_argument("--ecart-surprise", type=float, default=ECART_SURPRISE,
+                   help="avance minimale de la mesure sur la prévision")
     p.add_argument("--essai", action="store_true",
                    help="afficher sans mettre à jour l'état")
     args = p.parse_args()
@@ -180,6 +192,27 @@ def main() -> int:
                                   + f" (était {deja['note']:.1f})")
                     del annonces[cle]
 
+    # SURPRISE : la mesure réelle est très bonne et la prévision ne l'avait
+    # pas vue. Une seule alerte par épisode, grâce à la pause.
+    b = data.get("bouee_ambleteuse") or {}
+    if b.get("note_mesuree") is not None and b.get("note_prevue") is not None:
+        mesure = datetime.fromisoformat(b["instant"])
+        if mesure.tzinfo and _ZONE:
+            mesure = mesure.astimezone(_ZONE).replace(tzinfo=None)
+        mesure = mesure.replace(tzinfo=None)
+        derniere = etat.get("surprise")
+        en_pause = derniere and ref - datetime.fromisoformat(derniere) < timedelta(hours=PAUSE_SURPRISE_H)
+        if (ref - mesure <= timedelta(hours=AGE_MAX_MESURE_H)
+                and b["note_mesuree"] >= args.seuil_surprise
+                and b["note_mesuree"] - b["note_prevue"] >= args.ecart_surprise
+                and not en_pause):
+            v = lambda x, d=1: f"{x:.{d}f}".replace(".", ",")
+            urgents.insert(0, (
+                f"SURPRISE Wimereux : la bouée d'Ambleteuse mesure {v(b['hauteur_m'], 2)} m "
+                f"à {v(b['periode_pic_s'])} s ({mesure:%H}h), note {v(b['note_mesuree'])}/5 "
+                f"contre {v(b['note_prevue'])} prévue. C'est maintenant."))
+            etat["surprise"] = ref.isoformat(timespec="minutes")
+
     # Ménage : on oublie ce qui est passé depuis plus d'un jour.
     hier = (ref - timedelta(days=1)).date().isoformat()
     annonces = {k: v for k, v in annonces.items() if k.split("|")[2] >= hier}
@@ -188,7 +221,8 @@ def main() -> int:
 
     if not args.essai:
         ETAT.write_text(json.dumps({"annonces": annonces,
-                                    "immediats": sorted(immediats)},
+                                    "immediats": sorted(immediats),
+                                    "surprise": etat.get("surprise")},
                                    ensure_ascii=False, indent=1), encoding="utf-8")
         PRIORITE.write_text("high" if urgents else "default", encoding="utf-8")
 

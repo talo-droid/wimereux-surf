@@ -1478,6 +1478,29 @@ def recuperer_bouee():
         return None
 
 
+def noter_mesure(bouee, creneaux_wimereux, sp) -> None:
+    """
+    Note surf de la mesure réelle : la houle mesurée par la bouée remplace la
+    houle prévue ; le vent, la marée et le risque d'orage restent ceux de
+    l'heure en cours. On garde à côté la note que la prévision donnait pour
+    cette même heure : l'écart entre les deux, c'est la surprise.
+    Rien n'est ajouté la nuit, faute de créneau à comparer.
+    """
+    if not bouee or bouee.get("hauteur_m") is None or bouee.get("periode_pic_s") is None:
+        return
+    heure = bouee["instant"][:13]
+    c = next((x for x in creneaux_wimereux if x.instant.isoformat()[:13] == heure), None)
+    if c is None:
+        return
+    hs, tp = bouee["hauteur_m"], bouee["periode_pic_s"]
+    xi = iribarren(hs, tp, c.pente)
+    houle = score_houle(sp, hs, tp, bouee.get("direction_pic"), xi=xi)
+    bouee["note_mesuree"] = note_surf(houle, c.note_maree, c.note_vent,
+                                      c.risque_orage, hs)
+    bouee["note_prevue"] = c.note_totale
+    bouee["houle_mesuree"] = houle
+
+
 def archiver_observation(bouee, creneaux_wimereux) -> None:
     """
     Ajoute la mesure à observations/ambleteuse.csv, à côté de ce que le
@@ -1656,6 +1679,7 @@ def main() -> int:
     if args.json:
         bouee = recuperer_bouee()
         if "wimereux" in resultats:
+            noter_mesure(bouee, resultats["wimereux"]["creneaux"], SPOTS["wimereux"])
             archiver_observation(bouee, resultats["wimereux"]["creneaux"])
         exporter_json(resultats, args.json, erreurs, bouee)
         total = sum(len(r["creneaux"]) for r in resultats.values())
