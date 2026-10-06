@@ -820,7 +820,8 @@ function afficher() {
       bouée d'Ambleteuse ${quand} : <b>${v(b.hauteur_m.toFixed(2))} m à ${v(b.periode_pic_s.toFixed(1))} s</b>,
       du ${Math.round(b.direction_pic)}° ${rose(b.direction_pic)}${b.temp_eau != null
         ? `, eau ${v(b.temp_eau.toFixed(1))} °C` : ""}${b.vent_kt != null
-        ? `, vent estimé ${Math.round(b.vent_kt)} nds` : ""}
+        ? `, vent estimé ${Math.round(b.vent_kt)} nds` : ""}${b.note_mesuree != null
+        ? ` → <b>${v(b.note_mesuree.toFixed(1))}/5 mesuré</b>, ${v(b.note_prevue.toFixed(1))} prévu` : ""}
       · <a href="${b.source}" target="_blank" rel="noopener noreferrer"
            style="color:inherit">Géodunes</a></span><br>` + detail.innerHTML;
   }
