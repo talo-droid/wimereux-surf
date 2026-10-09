@@ -307,7 +307,8 @@
 
 <footer>
   Mesures en temps réel : bouée houlographe d'Ambleteuse,
-  <a href="https://www.geodunes.fr/acces-aux-donnees-temps-reel-de-la-bouee-dambleteuse-62/">Géodunes</a>.
+  <a href="https://www.geodunes.fr/acces-aux-donnees-temps-reel-de-la-bouee-dambleteuse-62/">Géodunes</a> ;
+  bouée de Hastings, <a href="https://wavenet.cefas.co.uk/">Cefas WaveNet</a>.
   <br>Houle et vent : Open-Meteo (modèles EWAM et GWAM).
   Données de marée fournies par <a href="https://api-maree.fr/">api-maree.fr</a>
   sous licence CC BY, calculées à partir de composantes harmoniques
@@ -825,6 +826,22 @@ function afficher() {
       · <a href="${b.source}" target="_blank" rel="noopener noreferrer"
            style="color:inherit">Géodunes</a></span><br>` + detail.innerHTML;
   }
+  // Hastings, relais d'Ambleteuse : même hauteur par houle de sud-ouest.
+  const hb = DONNEES.bouee_hastings;
+  if (spot.cle === "wimereux" && hb && hb.hauteur_m != null) {
+    const age = Math.round((Date.now() - new Date(hb.instant).getTime()) / 60000);
+    const quand = age < 90 ? `il y a ${Math.max(age, 0)} min` : `il y a ${Math.round(age / 60)} h`;
+    const v = x => String(x).replace(".", ",");
+    const ligneH = `<span style="${age > 360 ? "opacity:.6" : ""}">Bouée de Hastings ${quand} :
+      ${v(hb.hauteur_m.toFixed(2))} m${hb.periode_pic_s != null ? ` à ${v(hb.periode_pic_s.toFixed(1))} s` : ""}${
+      hb.direction_pic != null ? `, du ${Math.round(hb.direction_pic)}° ${rose(hb.direction_pic)}` : ""}${
+      hb.note_mesuree != null ? ` → ${v(hb.note_mesuree.toFixed(1))}/5 si transposée à Wimereux` : ""}
+      · <a href="${hb.source}" target="_blank" rel="noopener noreferrer" style="color:inherit">Cefas</a></span><br>`;
+    const pos = detail.innerHTML.indexOf("<br>");
+    detail.innerHTML = (b && b.hauteur_m != null && pos >= 0)
+      ? detail.innerHTML.slice(0, pos + 4) + ligneH + detail.innerHTML.slice(pos + 4)
+      : ligneH + detail.innerHTML;
+  }
   contenu.append(detail);
 
   const resumes = {};
@@ -1018,6 +1035,7 @@ function normaliser(data) {
 
 function rendre(data) {
   data.bouee_ambleteuse ??= null;
+  data.bouee_hastings ??= null;
   DONNEES = normaliser(data);
   const maj = new Date(data.genere_le);
   document.getElementById("maj").textContent =
