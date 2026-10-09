@@ -227,18 +227,24 @@ Pour l'essayer tout de suite : onglet Actions → « Bouée à la pleine mer » 
 Run workflow, en cochant « Contrôler tout de suite ». Le seuil se règle avec la
 variable de dépôt `SEUIL_SURPRISE` (3,5 par défaut).
 
-## Calais : la houle qui contourne le cap Gris-Nez
+## Wimereux : la mer à la digue
 
-La fenêtre de houle de Calais est tournée vers le nord. Une houle de sud-ouest
-y était donc notée zéro, alors qu'une partie contourne le cap Gris-Nez : à
-Gravelines, elle garde environ 55 % de sa hauteur de Hastings et arrive du
-nord-ouest (290-310°). Calais calcule donc deux houles et garde la meilleure :
-celle du large au point du spot, et celle du sud-ouest contournée (houle du
-point de Wimereux × 0,5, venant du 300°). Le créneau porte alors
-`houle_contournee: true`. Hypothèse prudente, à confirmer au journal.
+Au-dessus de 7,50 m de hauteur d'eau (même référence que les tables de marée
+de Boulogne), la plage de Wimereux est couverte : la mer monte jusqu'à la
+digue, et le ressac brouille les vagues. C'est souvent insurfable, sauf si la
+houle est assez grosse pour casser plus au large. Concrètement, ça arrive aux
+pleines mers à partir d'un coefficient d'environ 70.
 
-La bouée de référence affichée pour Calais est maintenant Goodwin Sands : le
-bateau-feu de Sandettie sous-estime la mer courte.
+La note surf est alors multipliée par un facteur (`facteur_digue` dans chaque
+créneau) qui descend de 1 à un plancher entre 7,50 et 7,90 m. Le plancher
+dépend de la houle : 0,25 sous 1 m, 0,85 au-dessus de 1,8 m, entre les deux en
+proportion. La mesure de la bouée subit le même traitement, avec la hauteur
+mesurée. Réglages dans `SPOTS["wimereux"]["digue"]`. Le seuil de 7,50 m vient
+de l'expérience ; les planchers et les hauteurs de houle sont à valider au
+journal.
+
+La bouée de référence affichée pour Calais est Goodwin Sands : le bateau-feu
+de Sandettie sous-estime la mer courte.
 
 ## Le journal
 

@@ -113,6 +113,19 @@ SPOTS = {
         },
         "pente_haute": 0.035,
         "pente_basse": 0.010,
+        # Au-dessus de ce niveau d'eau (hauteur de marée, même référence que
+        # les tables de Boulogne), la plage est couverte : la mer bat la digue
+        # et le ressac brouille les vagues. Souvent pas surfable, sauf si la
+        # houle est assez grosse pour casser plus au large. La note surf est
+        # multipliée par un facteur qui descend de 1 à "plancher" sur
+        # "transition_m" mètres au-dessus du seuil ; le plancher remonte avec
+        # la houle, de "plancher_petit" (h ≤ h_petite) à "plancher_gros"
+        # (h ≥ h_grosse). Seuil d'expérience, valeurs de houle à valider au journal.
+        "digue": {
+            "seuil_m": 7.50, "transition_m": 0.40,
+            "plancher_petit": 0.25, "plancher_gros": 0.85,
+            "h_petite": 1.0, "h_grosse": 1.8,
+        },
         # Liens affichés en haut de la page, pour vérifier la prévision
         # contre la mesure et contre l'œil.
         "liens": {
@@ -150,17 +163,6 @@ SPOTS = {
         },
         "pente_haute": 0.035,
         "pente_basse": 0.010,
-        # Houle de sud-ouest qui contourne le cap Gris-Nez. Les bouées de la
-        # Manche Est (déc. 2024 → oct. 2026) montrent qu'après le cap, à
-        # Gravelines, elle garde environ 55 % de sa hauteur de Hastings et
-        # arrive du nord-ouest (≈ 290-310°). Sans ce chemin, la fenêtre nord
-        # de Calais la notait zéro. Hypothèse à valider au journal.
-        "contournement": {
-            "point": (50.80, 0.65),          # même point que Wimereux
-            "secteur": (195.0, 285.0),       # direction au large
-            "facteur": 0.50,                 # un peu sous Gravelines : prudence
-            "direction_locale": 300.0,
-        },
         "liens": {
             # Bouée houlographe de Goodwin Sands, de l'autre côté du détroit :
             # le bateau-feu de Sandettie sous-estime la mer courte.
@@ -1225,9 +1227,9 @@ class Creneau:
     # sessions de DUREE_SESSION_H heures commençant à cette heure
     session_surf: float | None = None
     session_wing: float | None = None
-    # Calais : la note de houle vient de la houle de sud-ouest qui contourne
-    # le cap Gris-Nez, et non de la houle du large au point du spot.
-    houle_contournee: bool = False
+    # Wimereux : part de la note conservée quand la mer couvre la plage et
+    # bat la digue (1 = aucun effet).
+    facteur_digue: float = 1.0
 
     def ligne(self) -> str:
         def c(n):
@@ -1267,8 +1269,6 @@ def calculer_sessions(creneaux) -> None:
 
 def construire_creneaux(sp, heures: int):
     houle = recuperer_houle(sp, heures)
-    cont = sp.get("contournement")
-    houle_cont = recuperer_houle({**sp, "point_houle": cont["point"]}, heures) if cont else {}
     vent = recuperer_vent(sp, heures)
     soleil = recuperer_soleil(sp, heures)
     courant = recuperer_courant(sp, heures)
@@ -1325,26 +1325,10 @@ def construire_creneaux(sp, heures: int):
         dh = derivee_hauteur(instant, hauteurs)
         trans = translation_m_min(dh, pente)
         orage = risques.get(instant, "nul")
+        f_digue = facteur_digue(sp, eau, h["hauteur_m"])
 
         n_houle = score_houle(sp, h["hauteur_m"], h["tpeak_s"], h["direction_deg"],
                               xi=xi, part_houle=part)
-        # Calais : la houle de sud-ouest qui contourne le cap, si elle note
-        # mieux que la houle du large au point du spot.
-        contournee = False
-        alt = houle_cont.get(instant)
-        if (cont and alt and alt.get("hauteur_m")
-                and dans_secteur(alt.get("direction_deg"), cont["secteur"])):
-            f = cont["facteur"]
-            h_alt = dict(alt, hauteur_m=alt["hauteur_m"] * f,
-                         direction_deg=cont["direction_locale"],
-                         houle_longue_m=(alt["houle_longue_m"] * f
-                                         if alt.get("houle_longue_m") is not None else None))
-            xi_a = iribarren(h_alt["hauteur_m"], h_alt["tpeak_s"], pente)
-            part_a = part_houle_longue(h_alt["hauteur_m"], h_alt["houle_longue_m"])
-            n_a = score_houle(sp, h_alt["hauteur_m"], h_alt["tpeak_s"],
-                              h_alt["direction_deg"], xi=xi_a, part_houle=part_a)
-            if n_a > n_houle:
-                h, xi, part, n_houle, contournee = h_alt, xi_a, part_a, n_a, True
         n_pos = score_position_maree(sp, delta_pm, demi_cycle)
         n_stab = score_stabilite(trans)
         n_maree = score_maree(n_pos, n_stab)
@@ -1395,11 +1379,12 @@ def construire_creneaux(sp, heures: int):
             fiabilite=fiabilite(echeance, v.get("ecart_vent_kt"), h["ecart_modeles_m"]),
             note_houle=n_houle, note_position=n_pos, note_stabilite=n_stab,
             note_maree=n_maree, note_vent=n_vent,
-            note_totale=note_surf(n_houle, n_maree, n_vent, orage, h["hauteur_m"]),
+            note_totale=round(note_surf(n_houle, n_maree, n_vent, orage, h["hauteur_m"])
+                              * f_digue, 2),
             planches=planches_conseillees(h["hauteur_m"], h["tpeak_s"]),
             note_wing=n_wing, wing_detail=detail_wing,
             aile_m2=aile, toilage=toilage,
-            houle_contournee=contournee,
+            facteur_digue=f_digue,
         ))
 
     calculer_sessions(creneaux)
@@ -1535,6 +1520,26 @@ def recuperer_bouee():
         return None
 
 
+def facteur_digue(sp, hauteur_eau_m, hauteur_houle_m) -> float:
+    """
+    Part de la note surf conservée quand la mer monte jusqu'à la digue.
+    1 sous le seuil ; au-dessus, descend vers un plancher qui dépend de la
+    taille de la houle : une petite houle se perd dans le ressac, une grosse
+    casse plus au large et reste surfable.
+    """
+    d = sp.get("digue")
+    if not d or hauteur_eau_m is None:
+        return 1.0
+    exces = hauteur_eau_m - d["seuil_m"]
+    if exces <= 0:
+        return 1.0
+    hs = hauteur_houle_m or 0.0
+    t = _borne((hs - d["h_petite"]) / (d["h_grosse"] - d["h_petite"]))
+    plancher = d["plancher_petit"] + t * (d["plancher_gros"] - d["plancher_petit"])
+    p = _borne(exces / d["transition_m"])
+    return round(1.0 - p * (1.0 - plancher), 3)
+
+
 def dans_secteur(direction, secteur) -> bool:
     if direction is None:
         return False
@@ -1635,8 +1640,9 @@ def noter_mesure(bouee, creneaux_wimereux, sp) -> None:
     hs, tp = bouee["hauteur_m"], bouee["periode_pic_s"]
     xi = iribarren(hs, tp, c.pente)
     houle = score_houle(sp, hs, tp, bouee.get("direction_pic"), xi=xi)
-    bouee["note_mesuree"] = note_surf(houle, c.note_maree, c.note_vent,
-                                      c.risque_orage, hs)
+    bouee["note_mesuree"] = round(
+        note_surf(houle, c.note_maree, c.note_vent, c.risque_orage, hs)
+        * facteur_digue(sp, getattr(c, "hauteur_eau_m", None), hs), 2)
     bouee["note_prevue"] = c.note_totale
     bouee["houle_mesuree"] = houle
 
