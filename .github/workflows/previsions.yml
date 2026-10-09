@@ -42,7 +42,8 @@ jobs:
         run: |
           python alerter.py \
             --seuil "${{ vars.SEUIL_ALERTE || '3' }}" \
-            --seuil-wing "${{ vars.SEUIL_ALERTE_WING || '3' }}" > message.txt
+            --seuil-wing "${{ vars.SEUIL_ALERTE_WING || '3' }}" \
+            --seuil-surprise "${{ vars.SEUIL_SURPRISE || '3.5' }}" > message.txt
           if [ -s message.txt ]; then
             echo "envoyer=oui" >> "$GITHUB_OUTPUT"
             cat message.txt
@@ -80,4 +81,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/data.json archives/ etat_alertes.json observations/
           git diff --staged --quiet || git commit -m "Prévisions $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+          # Le contrôle à la pleine mer (maree.yml) peut avoir publié entre-temps.
+          for essai in 1 2 3; do
+            git pull --rebase --quiet && git push && exit 0
+            sleep $((essai * 10))
+          done
+          exit 1

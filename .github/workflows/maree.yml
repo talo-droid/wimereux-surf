@@ -1,0 +1,79 @@
+name: Bouée à la pleine mer
+
+# Contrôle léger de la bouée d'Ambleteuse une heure avant la pleine mer de
+# Wimereux, puis à la pleine mer. Le script se réveille toutes les 20 minutes
+# en journée, mais hors de ces deux fenêtres il s'arrête aussitôt sans rien
+# lire ni rien publier.
+
+on:
+  schedule:
+    # Horaires en UTC : de 6h à 21h40 heure d'été, de 5h à 20h40 en hiver.
+    - cron: "*/20 4-19 * * *"
+  workflow_dispatch:
+    inputs:
+      forcer:
+        description: "Contrôler tout de suite, même hors fenêtre de pleine mer"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maree
+  cancel-in-progress: false
+
+jobs:
+  controler:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Paris
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Contrôler la bouée
+        id: controle
+        run: |
+          python verif_maree.py \
+            ${{ inputs.forcer && '--forcer' || '' }} \
+            --seuil-surprise "${{ vars.SEUIL_SURPRISE || '3.5' }}" > message.txt
+          if [ -s message.txt ]; then
+            echo "envoyer=oui" >> "$GITHUB_OUTPUT"
+            cat message.txt
+          fi
+
+      - name: Notifier
+        if: steps.controle.outputs.envoyer == 'oui'
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "Pas de sujet ntfy configuré, notification ignorée."
+            exit 0
+          fi
+          curl -sS --fail-with-body \
+            -H "Title: Bonne surprise" \
+            -H "Tags: ocean,tada" \
+            -H "Priority: high" \
+            -H "Click: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" \
+            --data-binary @message.txt \
+            "https://ntfy.sh/$NTFY_TOPIC"
+
+      - name: Publier
+        # Seulement si un contrôle a eu lieu. Le calcul principal peut avoir
+        # publié entre-temps : on se recale sur lui avant de pousser.
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add etat_maree.json observations/ 2>/dev/null || true
+          git diff --staged --quiet && exit 0
+          git commit -m "Bouée à la pleine mer $(date +'%Y-%m-%d %H:%M')"
+          for essai in 1 2 3; do
+            git pull --rebase --quiet && git push && exit 0
+            sleep $((essai * 10))
+          done
+          exit 1
