@@ -48,7 +48,7 @@ import urllib.parse
 import urllib.request
 from bisect import bisect_left
 from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
@@ -150,9 +150,21 @@ SPOTS = {
         },
         "pente_haute": 0.035,
         "pente_basse": 0.010,
+        # Houle de sud-ouest qui contourne le cap Gris-Nez. Les bouées de la
+        # Manche Est (déc. 2024 → oct. 2026) montrent qu'après le cap, à
+        # Gravelines, elle garde environ 55 % de sa hauteur de Hastings et
+        # arrive du nord-ouest (≈ 290-310°). Sans ce chemin, la fenêtre nord
+        # de Calais la notait zéro. Hypothèse à valider au journal.
+        "contournement": {
+            "point": (50.80, 0.65),          # même point que Wimereux
+            "secteur": (195.0, 285.0),       # direction au large
+            "facteur": 0.50,                 # un peu sous Gravelines : prudence
+            "direction_locale": 300.0,
+        },
         "liens": {
-            "bouee": "https://www.ndbc.noaa.gov/station_page.php"
-                     "?station=62304&uom=M&tz=STN",
+            # Bouée houlographe de Goodwin Sands, de l'autre côté du détroit :
+            # le bateau-feu de Sandettie sous-estime la mer courte.
+            "bouee": "https://wavenet.cefas.co.uk/details/218/EXT",
             "webcam": "https://www.vision-environnement.com/it/webcam/francia/"
                       "hauts-de-france/1241-sangatte/",
             "previsions": "https://www.windguru.cz/48349",
@@ -271,6 +283,16 @@ SEUIL_CAGOULE = 9.0
 # à constituer, calcul après calcul, un historique « prévu contre mesuré ».
 BOUEE_AMBLETEUSE = "https://www.geodunes.fr/wp-json/geodunes/v1/sofar/bouee1/latest"
 PERIODE_MAX_BOUEE_S = 20     # au-delà, mesure parasite de la bouée
+
+# Hastings WaveNet en direct, relais de la bouée d'Ambleteuse. Par houle de
+# sud-ouest, Ambleteuse mesure à peu près la même hauteur que Hastings
+# (×0,9 à ×1,2 sur les premières semaines communes) : quand Ambleteuse est
+# muette ou parasitée, Hastings donne une mesure de remplacement.
+HASTINGS_DIRECT = "https://wavenet-api.cefas.co.uk/api/Map/Current"
+PAGE_HASTINGS = "https://wavenet.cefas.co.uk/details/HASTINGSWN/INT"
+SECTEUR_RELAIS_HASTINGS = (195.0, 285.0)
+FACTEUR_HASTINGS_WIMEREUX = 1.0
+OBSERVATIONS_HASTINGS = Path(__file__).parent / "observations" / "hastings.csv"
 PAGE_BOUEE_AMBLETEUSE = ("https://www.geodunes.fr/"
                          "acces-aux-donnees-temps-reel-de-la-bouee-dambleteuse-62/")
 OBSERVATIONS = Path(__file__).parent / "observations" / "ambleteuse.csv"
@@ -1203,6 +1225,9 @@ class Creneau:
     # sessions de DUREE_SESSION_H heures commençant à cette heure
     session_surf: float | None = None
     session_wing: float | None = None
+    # Calais : la note de houle vient de la houle de sud-ouest qui contourne
+    # le cap Gris-Nez, et non de la houle du large au point du spot.
+    houle_contournee: bool = False
 
     def ligne(self) -> str:
         def c(n):
@@ -1242,6 +1267,8 @@ def calculer_sessions(creneaux) -> None:
 
 def construire_creneaux(sp, heures: int):
     houle = recuperer_houle(sp, heures)
+    cont = sp.get("contournement")
+    houle_cont = recuperer_houle({**sp, "point_houle": cont["point"]}, heures) if cont else {}
     vent = recuperer_vent(sp, heures)
     soleil = recuperer_soleil(sp, heures)
     courant = recuperer_courant(sp, heures)
@@ -1301,6 +1328,23 @@ def construire_creneaux(sp, heures: int):
 
         n_houle = score_houle(sp, h["hauteur_m"], h["tpeak_s"], h["direction_deg"],
                               xi=xi, part_houle=part)
+        # Calais : la houle de sud-ouest qui contourne le cap, si elle note
+        # mieux que la houle du large au point du spot.
+        contournee = False
+        alt = houle_cont.get(instant)
+        if (cont and alt and alt.get("hauteur_m")
+                and dans_secteur(alt.get("direction_deg"), cont["secteur"])):
+            f = cont["facteur"]
+            h_alt = dict(alt, hauteur_m=alt["hauteur_m"] * f,
+                         direction_deg=cont["direction_locale"],
+                         houle_longue_m=(alt["houle_longue_m"] * f
+                                         if alt.get("houle_longue_m") is not None else None))
+            xi_a = iribarren(h_alt["hauteur_m"], h_alt["tpeak_s"], pente)
+            part_a = part_houle_longue(h_alt["hauteur_m"], h_alt["houle_longue_m"])
+            n_a = score_houle(sp, h_alt["hauteur_m"], h_alt["tpeak_s"],
+                              h_alt["direction_deg"], xi=xi_a, part_houle=part_a)
+            if n_a > n_houle:
+                h, xi, part, n_houle, contournee = h_alt, xi_a, part_a, n_a, True
         n_pos = score_position_maree(sp, delta_pm, demi_cycle)
         n_stab = score_stabilite(trans)
         n_maree = score_maree(n_pos, n_stab)
@@ -1355,6 +1399,7 @@ def construire_creneaux(sp, heures: int):
             planches=planches_conseillees(h["hauteur_m"], h["tpeak_s"]),
             note_wing=n_wing, wing_detail=detail_wing,
             aile_m2=aile, toilage=toilage,
+            houle_contournee=contournee,
         ))
 
     calculer_sessions(creneaux)
@@ -1490,6 +1535,84 @@ def recuperer_bouee():
         return None
 
 
+def dans_secteur(direction, secteur) -> bool:
+    if direction is None:
+        return False
+    a, b = secteur
+    d = direction % 360
+    return a <= d <= b if a <= b else (d >= a or d <= b)
+
+
+def recuperer_hastings():
+    """Dernière mesure de la bouée Hastings WaveNet (Cefas), ou None."""
+    try:
+        j = _get_json(HASTINGS_DIRECT, {})
+        p = next(f["properties"] for f in j["features"]
+                 if f["properties"].get("id") == "HASTINGSWN")
+        r = p.get("results") or {}
+
+        def val(cle):
+            v = (r.get(cle) or {}).get("values") or [None]
+            try:
+                return float(v[0])
+            except (TypeError, ValueError):
+                return None
+
+        # Horodatage en temps universel, sans fuseau dans la réponse.
+        instant = datetime.fromisoformat(p["timestamp"][:19]).replace(tzinfo=timezone.utc)
+        if _ZONE:
+            instant = instant.astimezone(_ZONE)
+        return {
+            "nom": "Hastings",
+            "instant": instant.isoformat(timespec="minutes"),
+            "hauteur_m": val("Hm0"),
+            "periode_pic_s": val("Tpeak"),
+            "direction_pic": val("W_PDIR"),
+            "temp_eau": val("TEMP"),
+            "source": PAGE_HASTINGS,
+        }
+    except Exception as e:
+        print(f"Bouée de Hastings indisponible : {e}", file=sys.stderr)
+        return None
+
+
+def noter_relais_hastings(hastings, creneaux_wimereux, sp) -> None:
+    """
+    Note surf de la mesure de Hastings transposée à Wimereux, seulement par
+    houle de sud-ouest, là où les deux bouées mesurent à peu près la même
+    chose. Ailleurs, pas de note : le relais ne vaut pas.
+    """
+    if not hastings or hastings.get("hauteur_m") is None:
+        return
+    if not dans_secteur(hastings.get("direction_pic"), SECTEUR_RELAIS_HASTINGS):
+        return
+    copie = dict(hastings, hauteur_m=hastings["hauteur_m"] * FACTEUR_HASTINGS_WIMEREUX)
+    noter_mesure(copie, creneaux_wimereux, sp)
+    for cle in ("note_mesuree", "note_prevue", "houle_mesuree"):
+        if cle in copie:
+            hastings[cle] = copie[cle]
+
+
+def archiver_hastings(hastings) -> None:
+    """Une ligne par heure dans observations/hastings.csv, pour la calibration."""
+    if not hastings or hastings.get("hauteur_m") is None:
+        return
+    OBSERVATIONS_HASTINGS.parent.mkdir(parents=True, exist_ok=True)
+    instant = hastings["instant"][:13]
+    if OBSERVATIONS_HASTINGS.exists() and any(
+            l.startswith(instant) for l in
+            OBSERVATIONS_HASTINGS.read_text(encoding="utf-8").splitlines()):
+        return
+    nouveau = not OBSERVATIONS_HASTINGS.exists()
+    with OBSERVATIONS_HASTINGS.open("a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if nouveau:
+            w.writerow(["instant", "hs", "tp", "dir", "eau"])
+        w.writerow([instant] + ["" if hastings.get(k) is None else hastings[k]
+                                for k in ("hauteur_m", "periode_pic_s",
+                                          "direction_pic", "temp_eau")])
+
+
 def noter_mesure(bouee, creneaux_wimereux, sp) -> None:
     """
     Note surf de la mesure réelle : la houle mesurée par la bouée remplace la
@@ -1545,7 +1668,7 @@ def archiver_observation(bouee, creneaux_wimereux) -> None:
 
 
 def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None,
-                  bouee: dict | None = None) -> None:
+                  bouee: dict | None = None, hastings: dict | None = None) -> None:
     """
     Un seul fichier pour les deux spots. La page charge tout d'un coup et
     bascule de l'un à l'autre sans nouvelle requête.
@@ -1555,6 +1678,7 @@ def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None,
         # Avec le décalage explicite : le navigateur sait alors le convertir.
         "genere_le": maintenant().isoformat(timespec="minutes"),
         "bouee_ambleteuse": bouee,
+        "bouee_hastings": hastings,
         # Le quiver, pour que la page propose les mêmes planches au journal.
         "planches": PLANCHES,
         # Ordre fixe, celui de SPOTS. Un spot en échec reste présent avec sa
@@ -1690,10 +1814,14 @@ def main() -> int:
 
     if args.json:
         bouee = recuperer_bouee()
+        hastings = recuperer_hastings()
         if "wimereux" in resultats:
             noter_mesure(bouee, resultats["wimereux"]["creneaux"], SPOTS["wimereux"])
             archiver_observation(bouee, resultats["wimereux"]["creneaux"])
-        exporter_json(resultats, args.json, erreurs, bouee)
+            noter_relais_hastings(hastings, resultats["wimereux"]["creneaux"],
+                                  SPOTS["wimereux"])
+        archiver_hastings(hastings)
+        exporter_json(resultats, args.json, erreurs, bouee, hastings)
         total = sum(len(r["creneaux"]) for r in resultats.values())
         print(f"{total} créneaux sur {len(resultats)} spot(s) "
               f"écrits dans {args.json}")

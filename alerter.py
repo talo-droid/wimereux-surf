@@ -118,10 +118,28 @@ def message_surprise(b, ref, derniere, seuil=SEUIL_SURPRISE,
             or en_pause):
         return None
     v = lambda x, d=1: f"{x:.{d}f}".replace(".", ",")
-    return (f"SURPRISE Wimereux{contexte} : la bouée d'Ambleteuse mesure "
+    bouee = ("la bouée de Hastings (relais, Ambleteuse muette)"
+             if b.get("nom") == "Hastings" else "la bouée d'Ambleteuse")
+    return (f"SURPRISE Wimereux{contexte} : {bouee} mesure "
             f"{v(b['hauteur_m'], 2)} m à {v(b['periode_pic_s'])} s ({mesure:%Hh%M}), "
             f"note {v(b['note_mesuree'])}/5 contre {v(b['note_prevue'])} prévue. "
             f"C'est maintenant.")
+
+
+def mesure_a_juger(ambleteuse, hastings, ref):
+    """
+    Ambleteuse si elle a une mesure notée et récente ; sinon Hastings en
+    relais, qui n'est noté que par houle de sud-ouest.
+    """
+    for b in (ambleteuse, hastings):
+        if not b or b.get("note_mesuree") is None or b.get("note_prevue") is None:
+            continue
+        mesure = datetime.fromisoformat(b["instant"])
+        if mesure.tzinfo and _ZONE:
+            mesure = mesure.astimezone(_ZONE)
+        if ref - mesure.replace(tzinfo=None) <= timedelta(hours=AGE_MAX_MESURE_H):
+            return b
+    return None
 
 
 def meilleures_sessions(spot, attr, depart_min):
@@ -238,7 +256,8 @@ def main() -> int:
 
     # SURPRISE : la mesure réelle est très bonne et la prévision ne l'avait
     # pas vue. Une seule alerte par épisode, grâce à la pause.
-    msg = message_surprise(data.get("bouee_ambleteuse"), ref,
+    msg = message_surprise(mesure_a_juger(data.get("bouee_ambleteuse"),
+                                          data.get("bouee_hastings"), ref), ref,
                            derniere_surprise(etat), args.seuil_surprise,
                            args.ecart_surprise)
     if msg:

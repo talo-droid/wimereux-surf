@@ -146,7 +146,23 @@ def main() -> int:
             args.seuil_surprise, args.ecart_surprise,
             contexte=f", {libelle}")
     else:
-        print("  bouée muette, contrôle sans suite.", file=sys.stderr)
+        print("  bouée d'Ambleteuse muette.", file=sys.stderr)
+
+    # Ambleteuse muette ou mesure non notée : Hastings en relais.
+    if not message and (not bouee or bouee.get("note_mesuree") is None):
+        hastings = previsions.recuperer_hastings()
+        previsions.noter_relais_hastings(hastings, creneaux, previsions.SPOTS["wimereux"])
+        previsions.archiver_hastings(hastings)
+        if hastings:
+            print(f"  relais Hastings {hastings['instant']} : {hastings.get('hauteur_m')} m, "
+                  f"note {hastings.get('note_mesuree')}", file=sys.stderr)
+            message = alerter.message_surprise(
+                hastings, ref,
+                alerter.derniere_surprise(alerter.charger_etat()),
+                args.seuil_surprise, args.ecart_surprise,
+                contexte=f", {libelle}")
+            if hastings.get("note_mesuree") is not None:
+                bouee = hastings
 
     if not args.essai:
         # Les contrôles sont notés faits même si la bouée était muette : on
@@ -157,7 +173,7 @@ def main() -> int:
         etat["dernier"] = {
             "le": ref.isoformat(timespec="minutes"), "moment": libelle,
             "mesure": bouee and {k: bouee.get(k) for k in
-                                 ("instant", "hauteur_m", "periode_pic_s",
+                                 ("nom", "instant", "hauteur_m", "periode_pic_s",
                                   "note_mesuree", "note_prevue")},
         }
         if message:

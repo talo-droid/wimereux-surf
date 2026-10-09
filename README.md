@@ -170,6 +170,24 @@ toi, et dans quelles conditions. Une même heure n'est archivée qu'une fois.
 Si la bouée est muette (maintenance, perte de signal), l'outil continue sans
 elle.
 
+La bouée produit aussi des mesures parasites : environ une heure sur dix, une
+période de 20 à 26 s et une hauteur gonflée, par paquets toutes les douze
+heures, plutôt vers la basse mer (un artefact du mouillage). Toute mesure dont
+la période dépasse 20 s est écartée (`PERIODE_MAX_BOUEE_S`) ; on garde la
+dernière mesure plausible.
+
+### Hastings en relais
+
+La bouée Hastings WaveNet (Cefas) est lue à chaque calcul et affichée sous
+celle d'Ambleteuse. La comparaison des bouées de la Manche Est montre que, par
+houle de sud-ouest (195-285° à Hastings), Ambleteuse mesure à peu près la même
+hauteur que Hastings. Dans ce secteur seulement, la mesure de Hastings est
+transposée à Wimereux et notée : si Ambleteuse est muette, c'est elle qui
+déclenche l'alerte « bonne surprise », en le disant. Chaque mesure est
+archivée dans `observations/hastings.csv` : avec `ambleteuse.csv`, ce sera la
+base du coefficient de transfert par direction, quand il y aura assez de
+semaines communes.
+
 ### Alerte « bonne surprise »
 
 À chaque calcul, la mesure de la bouée est notée avec le barème surf : la houle
@@ -208,6 +226,19 @@ qu'on vérifie qu'il a bien tourné.
 Pour l'essayer tout de suite : onglet Actions → « Bouée à la pleine mer » →
 Run workflow, en cochant « Contrôler tout de suite ». Le seuil se règle avec la
 variable de dépôt `SEUIL_SURPRISE` (3,5 par défaut).
+
+## Calais : la houle qui contourne le cap Gris-Nez
+
+La fenêtre de houle de Calais est tournée vers le nord. Une houle de sud-ouest
+y était donc notée zéro, alors qu'une partie contourne le cap Gris-Nez : à
+Gravelines, elle garde environ 55 % de sa hauteur de Hastings et arrive du
+nord-ouest (290-310°). Calais calcule donc deux houles et garde la meilleure :
+celle du large au point du spot, et celle du sud-ouest contournée (houle du
+point de Wimereux × 0,5, venant du 300°). Le créneau porte alors
+`houle_contournee: true`. Hypothèse prudente, à confirmer au journal.
+
+La bouée de référence affichée pour Calais est maintenant Goodwin Sands : le
+bateau-feu de Sandettie sous-estime la mer courte.
 
 ## Le journal
 
