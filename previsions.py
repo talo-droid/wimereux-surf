@@ -521,6 +521,48 @@ def score_position_maree(sp, heures_depuis_pm, duree_demi_cycle_h=6.2) -> float:
     return round(_interp(x, sorted(ANCRAGES_MAREE + [(pic, 5.0)])), 2)
 
 
+# Wimereux, pleines mers au-dessus du seuil de la digue : le meilleur moment
+# est quand la mer redescend sous ce seuil et rend la plage. Position notée
+# en heures par rapport à ce passage, au jusant : 5 au passage, puis on perd
+# un point par heure de retard. Avant le passage, la mer est encore à la digue
+# et c'est le facteur de digue qui pénalise.
+ANCRAGES_PASSAGE_DIGUE = [(-1.0, 4.5), (0.0, 5.0), (1.0, 4.0),
+                          (2.0, 3.0), (3.0, 2.0), (4.5, 1.0)]
+
+
+def passages_digue(sp, extrema, hauteurs) -> dict:
+    """
+    Pour chaque pleine mer au-dessus du seuil de la digue : l'instant où la
+    mer redescend à ce seuil, interpolé sur les hauteurs d'eau à 30 min.
+    """
+    d = sp.get("digue")
+    if not d or not hauteurs:
+        return {}
+    seuil = d["seuil_m"]
+    serie = sorted(hauteurs.items())
+    passages = {}
+    for e in extrema:
+        if e["type"] != "PM" or (e.get("hauteur_m") or 0) <= seuil:
+            continue
+        precedent = None
+        for t, h in serie:
+            if t < e["instant"]:
+                continue
+            if h is not None and h <= seuil:
+                if precedent and precedent[1] > seuil:
+                    t0, h0 = precedent
+                    passages[e["instant"]] = t0 + (t - t0) * ((h0 - seuil) / (h0 - h))
+                else:
+                    passages[e["instant"]] = t
+                break
+            precedent = (t, h)
+    return passages
+
+
+def score_position_digue(heures_depuis_passage: float) -> float:
+    return round(_interp(heures_depuis_passage, ANCRAGES_PASSAGE_DIGUE), 2)
+
+
 def translation_m_min(dh_dt_m_h, pente) -> float:
     """
     Vitesse de déplacement horizontal du bord de l'eau. Sur un estran de
@@ -1290,6 +1332,7 @@ def construire_creneaux(sp, heures: int):
                                       instants[-1] + timedelta(hours=1))
     marnages = {}
     reference = maintenant().replace(tzinfo=None)
+    passages = passages_digue(sp, extrema, hauteurs)
 
     creneaux = []
     for instant in instants:
@@ -1330,6 +1373,17 @@ def construire_creneaux(sp, heures: int):
         n_houle = score_houle(sp, h["hauteur_m"], h["tpeak_s"], h["direction_deg"],
                               xi=xi, part_houle=part)
         n_pos = score_position_maree(sp, delta_pm, demi_cycle)
+        # Au jusant d'une pleine mer qui a couvert la plage : l'optimum est
+        # le moment où la mer redescend sous la digue.
+        pm_cycle = instant - timedelta(hours=delta_pm)
+        passage = next((t for pm, t in passages.items()
+                        if abs((pm - pm_cycle).total_seconds()) < 120), None)
+        if delta_pm >= 0 and passage is not None:
+            depuis = (instant - passage).total_seconds() / 3600.0
+            # Plus d'une heure avant le passage, la mer est à la digue : on
+            # garde la note de position habituelle, c'est la digue qui pénalise.
+            if depuis >= -1.0:
+                n_pos = score_position_digue(depuis)
         n_stab = score_stabilite(trans)
         n_maree = score_maree(n_pos, n_stab)
         n_vent = score_vent(sp, v["vitesse_kt"], v["direction_deg"], v["rafales_kt"])
@@ -1702,6 +1756,7 @@ def exporter_json(resultats: dict, chemin: Path, erreurs: dict | None = None,
                 "bouee": SPOTS[cle]["bouee"],
                 "site_maree": SPOTS[cle]["site_maree"],
                 "pic_maree_h": SPOTS[cle]["pic_maree_h"],
+                "seuil_digue_m": (SPOTS[cle].get("digue") or {}).get("seuil_m"),
                 "trajet_min": SPOTS[cle].get("trajet_min", 0),
                 "duree_session_h": DUREE_SESSION_H,
                 "liens": SPOTS[cle].get("liens", {}),

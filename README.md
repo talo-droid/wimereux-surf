@@ -235,6 +235,12 @@ digue, et le ressac brouille les vagues. C'est souvent insurfable, sauf si la
 houle est assez grosse pour casser plus au large. Concrètement, ça arrive aux
 pleines mers à partir d'un coefficient d'environ 70.
 
+Ces jours-là, le meilleur moment est au jusant, quand la mer redescend à
+7,50 m et rend la plage, et il ne faut pas être en retard : la note de position
+de marée vaut 5 à ce passage (interpolé sur les hauteurs d'eau à 30 min), 4,5
+une heure avant, puis perd un point par heure après (`ANCRAGES_PASSAGE_DIGUE`).
+Aux pleines mers sous 7,50 m, l'optimum reste une heure après la pleine mer.
+
 La note surf est alors multipliée par un facteur (`facteur_digue` dans chaque
 créneau) qui descend de 1 à un plancher entre 7,50 et 7,90 m. Le plancher
 dépend de la houle : 0,25 sous 1 m, 0,85 au-dessus de 1,8 m, entre les deux en
