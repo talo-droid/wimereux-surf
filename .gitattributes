@@ -1,0 +1,3 @@
+# Le calcul toutes les 3 h et le contrôle à la pleine mer ajoutent tous deux
+# des lignes au journal de la bouée : on garde celles des deux sans conflit.
+observations/*.csv merge=union

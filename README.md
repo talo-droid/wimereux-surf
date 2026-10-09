@@ -182,8 +182,32 @@ Elle ne part que pour une mesure de moins de deux heures, de jour, et une seule
 fois par épisode (pas de nouvelle alerte de ce type pendant six heures). Les
 seuils se règlent en tête d'`alerter.py` (`SEUIL_SURPRISE`, `ECART_SURPRISE`).
 
-Le calcul tourne toutes les trois heures : l'alerte peut donc arriver jusqu'à
-trois heures après le début de l'embellie.
+Le calcul tourne toutes les trois heures : seul, il pourrait laisser passer une
+embellie entre deux. D'où un second contrôle, calé sur la marée.
+
+### Contrôle à la pleine mer
+
+Le workflow « Bouée à la pleine mer » (`.github/workflows/maree.yml`, script
+`verif_maree.py`) se réveille toutes les 20 minutes en journée. Il regarde dans
+`docs/data.json` l'heure de la prochaine pleine mer de Wimereux et ne fait
+quelque chose qu'à deux moments : **une heure avant la pleine mer**, puis **à la
+pleine mer**. Le reste du temps, il s'arrête en quelques secondes sans rien lire.
+
+À ces deux moments, il lit la bouée, note la mesure avec le barème surf, la
+compare à la prévision de la même heure et ne prévient qu'en cas de bonne
+surprise, avec les mêmes critères que ci-dessus. La pause de six heures est
+commune aux deux alertes : jamais deux notifications pour le même épisode. La
+nuit (pas de créneau de jour), il ne fait rien.
+
+Chaque moment n'est contrôlé qu'une fois, même si GitHub lance la tâche en
+retard (jusqu'à 45 minutes, ce qui arrive). La mesure lue est archivée dans
+`observations/ambleteuse.csv` comme les autres, et le dernier contrôle est
+noté dans `etat_maree.json` (heure, mesure, note mesurée et prévue) : c'est là
+qu'on vérifie qu'il a bien tourné.
+
+Pour l'essayer tout de suite : onglet Actions → « Bouée à la pleine mer » →
+Run workflow, en cochant « Contrôler tout de suite ». Le seuil se règle avec la
+variable de dépôt `SEUIL_SURPRISE` (3,5 par défaut).
 
 ## Le journal
 

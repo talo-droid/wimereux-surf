@@ -40,6 +40,7 @@ except Exception:
 RACINE = Path(__file__).parent
 DONNEES = RACINE / "docs" / "data.json"
 ETAT = RACINE / "etat_alertes.json"
+ETAT_MAREE = RACINE / "etat_maree.json"       # tenu par verif_maree.py
 PRIORITE = RACINE / "priorite.txt"
 
 HAUSSE_NOTABLE = 0.75     # gain qui justifie une nouvelle alerte
@@ -78,6 +79,49 @@ def charger_etat() -> dict:
         pass
     # Ancien format (simple liste) ou fichier absent : on repart de zéro.
     return {"annonces": {}, "immediats": [], "surprise": None}
+
+
+def derniere_surprise(etat: dict) -> str | None:
+    """
+    Dernière alerte surprise, qu'elle vienne du calcul toutes les trois heures
+    (etat_alertes.json) ou du contrôle aux pleines mers (etat_maree.json) :
+    la pause vaut pour les deux, jamais deux alertes pour le même épisode.
+    """
+    dates = [etat.get("surprise")]
+    try:
+        dates.append(json.loads(ETAT_MAREE.read_text(encoding="utf-8")).get("surprise"))
+    except Exception:
+        pass
+    dates = [d for d in dates if d]
+    return max(dates) if dates else None
+
+
+def message_surprise(b, ref, derniere, seuil=SEUIL_SURPRISE,
+                     ecart=ECART_SURPRISE, contexte="") -> str | None:
+    """
+    Le texte de l'alerte si la mesure de la bouée est une bonne surprise
+    (récente, bien notée, nettement au-dessus de la prévision, hors pause),
+    sinon None.
+    """
+    b = b or {}
+    if b.get("note_mesuree") is None or b.get("note_prevue") is None:
+        return None
+    mesure = datetime.fromisoformat(b["instant"])
+    if mesure.tzinfo and _ZONE:
+        mesure = mesure.astimezone(_ZONE)
+    mesure = mesure.replace(tzinfo=None)
+    en_pause = bool(derniere) and (
+        ref - datetime.fromisoformat(derniere) < timedelta(hours=PAUSE_SURPRISE_H))
+    if (ref - mesure > timedelta(hours=AGE_MAX_MESURE_H)
+            or b["note_mesuree"] < seuil
+            or b["note_mesuree"] - b["note_prevue"] < ecart
+            or en_pause):
+        return None
+    v = lambda x, d=1: f"{x:.{d}f}".replace(".", ",")
+    return (f"SURPRISE Wimereux{contexte} : la bouée d'Ambleteuse mesure "
+            f"{v(b['hauteur_m'], 2)} m à {v(b['periode_pic_s'])} s ({mesure:%Hh%M}), "
+            f"note {v(b['note_mesuree'])}/5 contre {v(b['note_prevue'])} prévue. "
+            f"C'est maintenant.")
 
 
 def meilleures_sessions(spot, attr, depart_min):
@@ -194,24 +238,12 @@ def main() -> int:
 
     # SURPRISE : la mesure réelle est très bonne et la prévision ne l'avait
     # pas vue. Une seule alerte par épisode, grâce à la pause.
-    b = data.get("bouee_ambleteuse") or {}
-    if b.get("note_mesuree") is not None and b.get("note_prevue") is not None:
-        mesure = datetime.fromisoformat(b["instant"])
-        if mesure.tzinfo and _ZONE:
-            mesure = mesure.astimezone(_ZONE).replace(tzinfo=None)
-        mesure = mesure.replace(tzinfo=None)
-        derniere = etat.get("surprise")
-        en_pause = derniere and ref - datetime.fromisoformat(derniere) < timedelta(hours=PAUSE_SURPRISE_H)
-        if (ref - mesure <= timedelta(hours=AGE_MAX_MESURE_H)
-                and b["note_mesuree"] >= args.seuil_surprise
-                and b["note_mesuree"] - b["note_prevue"] >= args.ecart_surprise
-                and not en_pause):
-            v = lambda x, d=1: f"{x:.{d}f}".replace(".", ",")
-            urgents.insert(0, (
-                f"SURPRISE Wimereux : la bouée d'Ambleteuse mesure {v(b['hauteur_m'], 2)} m "
-                f"à {v(b['periode_pic_s'])} s ({mesure:%H}h), note {v(b['note_mesuree'])}/5 "
-                f"contre {v(b['note_prevue'])} prévue. C'est maintenant."))
-            etat["surprise"] = ref.isoformat(timespec="minutes")
+    msg = message_surprise(data.get("bouee_ambleteuse"), ref,
+                           derniere_surprise(etat), args.seuil_surprise,
+                           args.ecart_surprise)
+    if msg:
+        urgents.insert(0, msg)
+        etat["surprise"] = ref.isoformat(timespec="minutes")
 
     # Ménage : on oublie ce qui est passé depuis plus d'un jour.
     hier = (ref - timedelta(days=1)).date().isoformat()
