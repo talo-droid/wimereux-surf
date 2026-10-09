@@ -1623,8 +1623,13 @@ def noter_mesure(bouee, creneaux_wimereux, sp) -> None:
     """
     if not bouee or bouee.get("hauteur_m") is None or bouee.get("periode_pic_s") is None:
         return
-    heure = bouee["instant"][:13]
-    c = next((x for x in creneaux_wimereux if x.instant.isoformat()[:13] == heure), None)
+    # L'heure de la mesure, ou à défaut l'heure suivante : la mesure arrive
+    # souvent avec une demi-heure de retard, quand les créneaux passés ont
+    # déjà été retirés.
+    debut = datetime.fromisoformat(bouee["instant"]).replace(tzinfo=None, minute=0)
+    heures = [(debut + timedelta(hours=k)).isoformat()[:13] for k in (0, 1)]
+    c = next((x for h in heures for x in creneaux_wimereux
+              if x.instant.isoformat()[:13] == h), None)
     if c is None:
         return
     hs, tp = bouee["hauteur_m"], bouee["periode_pic_s"]
