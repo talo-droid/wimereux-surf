@@ -783,6 +783,9 @@ function afficher() {
   const pic = spot.pic_maree_h;
   const quandMaree = pic > 0 ? `${pic} h après la pleine mer`
     : pic < 0 ? `${Math.abs(pic)} h avant la pleine mer` : "à la pleine mer";
+  const quandMareeDigue = spot.seuil_digue_m
+    ? `${quandMaree}, ou au jusant quand la mer redescend à ${String(spot.seuil_digue_m.toFixed(2)).replace(".", ",")} m si la pleine mer couvre la plage`
+    : quandMaree;
   const duree = spot.duree_session_h || 2;
   const plage = c => {
     const d = new Date(c.instant), fin = new Date(d.getTime() + duree * 3600e3);
@@ -810,7 +813,7 @@ function afficher() {
            bWing.equipement ? `, ${texteEquipement(bWing.equipement)}` : ""}${orage(bWing)}`
       : `Wing : pas de fenêtre praticable sur la période.`)
     + `<br><small>Houle attendue de ${spot.bouee}, optimum de marée surf
-       ${quandMaree}. Sessions de ${duree} h. Carrés pâles = prévision moins
+       ${quandMareeDigue}. Sessions de ${duree} h. Carrés pâles = prévision moins
        fiable.</small>`;
   // Mesure réelle de la bouée d'Ambleteuse, pour Wimereux seulement : elle
   // est mouillée à quelques kilomètres au nord du spot.
