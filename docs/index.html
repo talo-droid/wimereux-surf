@@ -492,8 +492,10 @@ function tableauJournee(creneaux, dureeSession) {
           const motif = n === 0 ? motifZero(c, ligne.cle) : "";
           const aile = ligne.cle === "wing" && c.aile_m2
             ? ` · aile ${String(c.aile_m2).replace(".", ",")} m², ${c.toilage}` : "";
+          const digue = ligne.cle === "surf" && (c.facteur_digue ?? 1) < 1
+            ? ` · mer à la digue (${String(c.hauteur_eau_m).replace(".", ",")} m), ressac : note ×${String(c.facteur_digue).replace(".", ",")}` : "";
           cel.title = (motif ? `0 / 5 — ${motif}` : `${ligne.cle} ${n.toFixed(1)} / 5`)
-            + aile + ` · ${libelleFiabilite(c.fiabilite ?? 1)}`;
+            + aile + digue + ` · ${libelleFiabilite(c.fiabilite ?? 1)}`;
           break;
         }
         case "hauteur":
