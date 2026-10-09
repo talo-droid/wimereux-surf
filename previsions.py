@@ -270,6 +270,7 @@ SEUIL_CAGOULE = 9.0
 # nord de Wimereux. Ses mesures servent à afficher les conditions du moment et
 # à constituer, calcul après calcul, un historique « prévu contre mesuré ».
 BOUEE_AMBLETEUSE = "https://www.geodunes.fr/wp-json/geodunes/v1/sofar/bouee1/latest"
+PERIODE_MAX_BOUEE_S = 20     # au-delà, mesure parasite de la bouée
 PAGE_BOUEE_AMBLETEUSE = ("https://www.geodunes.fr/"
                          "acces-aux-donnees-temps-reel-de-la-bouee-dambleteuse-62/")
 OBSERVATIONS = Path(__file__).parent / "observations" / "ambleteuse.csv"
@@ -1451,7 +1452,18 @@ def recuperer_bouee():
     """
     try:
         d = _get_json(BOUEE_AMBLETEUSE, {})["data"]
-        w = d["waves"][-1]
+        # La bouée produit régulièrement des mesures parasites (période de 20 à
+        # 26 s, hauteur gonflée), par paquets toutes les douze heures environ,
+        # plutôt vers la basse mer : un artefact du mouillage, pas de la houle.
+        # On prend la dernière mesure plausible ; si aucune ne l'est, rien.
+        valides = [x for x in d["waves"]
+                   if x.get("peakPeriod") is not None
+                   and x["peakPeriod"] <= PERIODE_MAX_BOUEE_S]
+        if not valides:
+            print("Bouée d'Ambleteuse : dernière mesure écartée (période aberrante).",
+                  file=sys.stderr)
+            return None
+        w = valides[-1]
         t = d.get("surfaceTemp") or []
         v = d.get("wind") or []
         instant = datetime.fromisoformat(w["timestamp"].replace("Z", "+00:00"))
