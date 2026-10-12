@@ -109,8 +109,9 @@
 <div class="reperes"><span id="r-debut">hier</span><span>maintenant</span><span id="r-fin">demain</span></div>
 
 <div class="legende">
-  <span>Hauteur</span><span>0</span><canvas class="degrade" id="degrade" width="200" height="9"></canvas><span>3 m</span>
-  <span>· pastilles = mesures des bouées (carré : bateau-phare) · animation : 1 s = 10 min</span>
+  <span>Hauteur (fond)</span><span>0</span><canvas class="degrade" id="degrade" width="200" height="9"></canvas><span>3 m</span>
+  <span>· Période (crêtes)</span><span>4</span><canvas class="degrade" id="degrade-t" width="200" height="9"></canvas><span>13 s</span>
+  <span>· pastilles = mesures des bouées : hauteur · période (carré : bateau-phare) · animation : 1 s = 10 min</span>
 </div>
 
 <div class="grille">
@@ -133,6 +134,9 @@
       Chaque bouée corrige le modèle autour d'elle : si Hastings mesure 20 % de plus que prévu,
       la zone autour de Hastings monte d'autant, et la correction s'estompe en s'éloignant (à 60 km,
       il n'en reste presque rien). Les bateaux-phares, qui sous-estiment la mer courte, ne servent pas à corriger.</p>
+    <p>La couleur des crêtes donne la période : blanches pour une mer du vent courte, jaunes vers 6 s,
+      orange vers 8 s, corail au-delà de 10 s. Elle vient du modèle, corrigée par la période pic des bouées
+      comme la hauteur.</p>
     <p>Les crêtes partent dans la direction du modèle et avancent à la vitesse de groupe de la houle,
       calculée avec la période et la profondeur (EMODnet). En eau peu profonde elles ralentissent
       et tournent vers les hauts-fonds : c'est la réfraction, qui les fait arriver presque de face sur la côte.</p>
@@ -336,19 +340,22 @@ function calculerCorrection(t) {
     if (!m || m[1] == null) continue;
     const c = champ(b.lat, b.lon, t);
     if (!c || c.h < 0.1) continue;
-    correction.push({ lat: b.lat, lon: b.lon, lr: Math.log(borne(m[1] / c.h, 0.5, 2)) });
+    // Rapport de hauteur, et rapport de période quand la bouée la donne.
+    const lt = m[2] && c.T ? Math.log(borne(m[2] / c.T, 0.6, 1.7)) : null;
+    correction.push({ lat: b.lat, lon: b.lon, lr: Math.log(borne(m[1] / c.h, 0.5, 2)), lt });
   }
 }
 
 // Facteur de correction en un point : moyenne pondérée des rapports
 // (en logarithme), tirée vers 1 loin des bouées.
-function facteur(lat, lon) {
+function facteur(lat, lon, cle = "lr") {
   if (!correction || !correction.length) return 1;
   let s = 1 / (60 * 60), n = 0;
   for (const c of correction) {
+    if (c[cle] == null) continue;
     const [x, y] = versKm([c.lat, c.lon], [lat, lon]);
     const w = 1 / (x * x + y * y + 100);
-    s += w; n += w * c.lr;
+    s += w; n += w * c[cle];
   }
   return Math.exp(n / s);
 }
@@ -366,9 +373,25 @@ function couleur(h) {
   return PALETTE[PALETTE.length - 1][1];
 }
 const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+// Couleur des crêtes selon la période : blanc pour la mer du vent,
+// jaune puis orange et corail quand la houle s'allonge.
+const PALETTE_T = [[4, [255, 255, 255]], [6, [255, 236, 150]], [8, [255, 184, 77]], [10, [255, 122, 69]], [13, [228, 64, 96]]];
+function couleurT(T) {
+  if (T <= PALETTE_T[0][0]) return PALETTE_T[0][1];
+  for (let k = 1; k < PALETTE_T.length; k++) {
+    if (T <= PALETTE_T[k][0]) {
+      const [a, ca] = PALETTE_T[k - 1], [b, cb] = PALETTE_T[k], f = (T - a) / (b - a);
+      return ca.map((v, i) => Math.round(v + (cb[i] - v) * f));
+    }
+  }
+  return PALETTE_T[PALETTE_T.length - 1][1];
+}
 (function () {
   const g = $("#degrade").getContext("2d");
   for (let x = 0; x < 200; x++) { g.fillStyle = css(couleur(x / 200 * 3)); g.fillRect(x, 0, 1, 9); }
+  const gt = $("#degrade-t").getContext("2d");
+  gt.fillStyle = "#3a7f99"; gt.fillRect(0, 0, 200, 9);
+  for (let x = 0; x < 200; x++) { gt.fillStyle = css(couleurT(4 + x / 200 * 9)); gt.fillRect(x, 1, 1, 7); }
 })();
 
 // ---------------------------------------------------------------- carte
@@ -458,6 +481,7 @@ function avancer(p, dt) {
   p.lat += p.uy * ds / (KM_LAT * 1000);
   p.lon += p.ux * ds / (kmLon(p.lat) * 1000);
   p.h = c.h * facteur(p.lat, p.lon);
+  p.T = c.T * facteur(p.lat, p.lon, "lt");
   return p.lat > ZONE.s && p.lat < ZONE.n && p.lon > ZONE.o && p.lon < ZONE.e;
 }
 
@@ -483,7 +507,8 @@ function animer(now) {
     const sx = p.ux, sy = -p.uy;                       // sens de propagation à l'écran
     const L2 = (2.5 + 4 * (p.h || 0)) * Math.min(echelle, 2.5);
     const fondu = Math.min(1, p.age / 0.6, (p.vie - p.age) / 0.8);
-    ctx.strokeStyle = `rgba(255,255,255,${(fondu * borne(0.35 + (p.h || 0) / 2, 0, 0.95)).toFixed(3)})`;
+    const ct = couleurT(p.T || 5);
+    ctx.strokeStyle = `rgba(${ct[0]},${ct[1]},${ct[2]},${(fondu * borne(0.45 + (p.h || 0) / 2, 0, 0.95)).toFixed(3)})`;
     ctx.lineWidth = 0.9 + (p.h || 0) * 0.5;
     ctx.beginPath();
     ctx.moveTo(pt.x - sy * L2 - sx * L2 * 0.3, pt.y + sx * L2 - sy * L2 * 0.3);
@@ -509,7 +534,7 @@ function dessinerBouees() {
   for (const b of bouees) {
     const m = mesureVue(b, quand);
     const cls = "bouee" + (b.phare ? " phare" : "") + (m ? "" : " muette") + (b.id === "AMB" ? " ici" : "");
-    const txt = m ? fmt(m[1]) + " m" : "·";
+    const txt = m ? fmt(m[1]) + " m" + (m[2] ? " · " + fmt(m[2], 0) + " s" : "") : "·";
     const icone = L.divIcon({ className: "", html: `<span class="${cls}" style="${m ? `background:${css(couleur(m[1]))};color:${m[1] > 1.2 ? "#fff" : "#123239"}` : ""}">${txt}</span>`, iconSize: [0, 0] });
     L.marker([b.lat, b.lon], { icon: icone, keyboard: false }).bindPopup(() => fiche(b)).addTo(marqueurs);
   }
