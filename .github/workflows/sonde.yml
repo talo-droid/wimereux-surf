@@ -1,0 +1,39 @@
+name: Sonde Candhis (temporaire)
+
+# Lit une fois la page publique de la bouée de la baie de Somme pour voir
+# comment les mesures temps réel sont servies. À supprimer ensuite.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sonder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lire la page
+        run: |
+          python3 - <<'PY'
+          import http.cookiejar, urllib.request, re, base64
+          jar = http.cookiejar.CookieJar()
+          op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+          op.addheaders = [("User-Agent", "wimereux-surf/1.0 (+https://github.com/talo-droid/wimereux-surf)")]
+          base = "https://candhis.cerema.fr/_public_/"
+          def lire(u):
+              try:
+                  r = op.open(u, timeout=40)
+                  return r.read().decode("utf-8", "replace")
+              except Exception as e:
+                  return f"ERREUR {e}"
+          p = lire(base + "campagne.php?" + base64.b64encode(b"camp=08002").decode())
+          print("=== campagne", len(p))
+          for l in sorted(set(re.findall(r'(?:href|src|action|url)\s*[=:]\s*["\']([^"\']+)', p))):
+              print("LIEN", l)
+          for m in re.findall(r'(<table.*?</table>)', p, re.S)[:4]:
+              print("TABLE", re.sub(r"\s+", " ", m)[:3000])
+          for m in re.findall(r'(<script(?![^>]*src).*?</script>)', p, re.S)[:6]:
+              print("SCRIPT", re.sub(r"\s+", " ", m)[:2500])
+          print("TEXTE", re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", p))[:3000])
+          PY
