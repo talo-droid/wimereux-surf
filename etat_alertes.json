@@ -1,5 +1,10 @@
 {
- "annonces": {},
+ "annonces": {
+  "wimereux|surf|2026-10-15": {
+   "note": 3.63,
+   "debut": "2026-10-15T17:00:00"
+  }
+ },
  "immediats": [],
  "surprise": null
 }
