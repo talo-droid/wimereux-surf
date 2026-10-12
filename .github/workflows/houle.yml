@@ -1,0 +1,46 @@
+name: Carte de la houle
+
+# Relève toutes les bouées de la Manche Est pour la carte animée
+# (docs/houle.html). Les services ne donnent que la dernière mesure :
+# l'historique des 36 dernières heures est gardé dans docs/houle.json.
+
+on:
+  schedule:
+    # Toutes les 30 minutes, de 6h à 23h heure d'été (5h-22h en hiver).
+    - cron: "5,35 4-21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: houle
+  cancel-in-progress: false
+
+jobs:
+  relever:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Paris
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Relever les bouées
+        run: python houle_carte.py
+
+      - name: Publier
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/houle.json
+          git diff --staged --quiet && exit 0
+          git commit -m "Bouées $(date +'%Y-%m-%d %H:%M')"
+          for essai in 1 2 3; do
+            git pull --rebase --quiet && git push && exit 0
+            sleep $((essai * 10))
+          done
+          exit 1
