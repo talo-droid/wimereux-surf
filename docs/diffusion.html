@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diffusion de la houle</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--fond:#f4f6f5;--texte:#1d2b2a;--doux:#5b6b69;--carte:#ffffff;--trait:#d5dcda;--accent:#1f5f5b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fond:#141b1a;--texte:#e6eeec;--doux:#9aaba8;--carte:#1d2625;--trait:#33403e;--accent:#7cc4bd}}
+:root[data-theme="dark"]{--fond:#141b1a;--texte:#e6eeec;--doux:#9aaba8;--carte:#1d2625;--trait:#33403e;--accent:#7cc4bd}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.5rem;margin:0 0 4px}p.sous{margin:0 0 16px;color:var(--doux)}
+.ctl{display:flex;flex-wrap:wrap;gap:16px;margin:0 0 12px}
+.grp{display:flex;gap:4px;flex-wrap:wrap;align-items:center}.grp span{color:var(--doux);font-size:.85rem;margin-right:4px}
+button{font:inherit;font-size:.9rem;border:1px solid var(--trait);background:var(--carte);color:var(--texte);padding:5px 10px;border-radius:6px;cursor:pointer}
+button.on{background:var(--accent);border-color:var(--accent);color:var(--fond)}
+#carte{height:62vh;min-height:380px;border-radius:10px;border:1px solid var(--trait)}
+.leg{display:flex;align-items:center;gap:8px;margin:10px 0 0;font-size:.85rem;color:var(--doux);flex-wrap:wrap}
+.barre{height:10px;width:220px;border-radius:5px;background:linear-gradient(90deg,#2c5d8a,#7fa8c9,#e9e4d4,#e8a35b,#c4532b)}
+.lec{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:20px}
+.lec div{background:var(--carte);border:1px solid var(--trait);border-radius:10px;padding:12px 14px}
+.lec h2{font-size:1rem;margin:0 0 6px}.lec p{margin:0 0 6px}
+.etiq{font:600 11px system-ui;color:#1d2b2a;background:rgba(255,255,255,.85);padding:1px 4px;border-radius:4px;white-space:nowrap;border:1px solid rgba(0,0,0,.15)}
+small{color:var(--doux)}
+</style></head><body><main>
+<p style="margin:0 0 8px;font-size:.9rem"><a href="./" style="color:var(--accent)">← Prévisions</a> · <a href="houle.html" style="color:var(--accent)">La houle en direct</a></p>
+<h1>Diffusion de la houle en Manche Est</h1>
+<p class="sous">Hauteur mesurée à chaque bouée, rapportée à celle de Hastings WaveNet au même moment, selon la direction de la houle à Hastings. Décembre 2024 → octobre 2026, heures où Hastings mesure au moins 0,75 m.</p>
+<div class="ctl">
+ <div class="grp" id="dirs"><span>Houle à Hastings</span></div>
+ <div class="grp" id="tps"><span>Période</span></div>
+</div>
+<div id="carte"></div>
+<div class="leg"><span>×0,3</span><div class="barre"></div><span>×1 (comme Hastings)</span><span>×1,5</span>
+<span>· flèche = sens de propagation mesuré sur place · cercle pointillé = moins de 20 heures · carré = bateau-phare</span></div>
+<div class="lec" id="lec"></div>
+<p><small>Sources : EMODnet Physics / Copernicus Marine (Channel Coastal Observatory, Cefas, Met Office, Cerema, Vlaamse Hydrografie) ; bouée d'Ambleteuse : Géodunes ; bathymétrie : EMODnet Bathymetry. Les bateaux-phares mesurent mal la mer courte et sont sous-estimés.</small></p>
+</main>
+<script>
+const DATA={"R": {"6200170": {"0_0": [0.44, 315, null], "1_0": [0.46, 569, null], "2_0": [0.52, 2908, null], "7_0": [0.8, 1535, null], "0_1": [0.55, 7, null], "1_1": [0.6, 71, null], "2_1": [0.64, 908, null], "7_1": [1.57, 42, null]}, "6200254": {"0_0": [0.3, 141, 319], "1_0": [0.36, 206, 298], "2_0": [0.56, 595, 291], "7_0": [0.88, 54, 13], "0_1": [0.26, 2, 282], "1_1": [0.39, 12, 282], "2_1": [0.62, 207, 314], "7_1": [1.27, 14, 13]}, "6200304": {"0_0": [0.37, 311, null], "1_0": [0.4, 572, null], "2_0": [0.5, 2915, null], "7_0": [0.79, 1512, null], "0_1": [0.4, 7, null], "1_1": [0.54, 71, null], "2_1": [0.61, 907, null], "7_1": [1.27, 42, null]}, "6200305": {"0_0": [0.82, 319, null], "1_0": [0.82, 565, null], "2_0": [0.75, 2451, null], "7_0": [0.65, 1345, null], "0_1": [0.76, 7, null], "1_1": [0.89, 71, null], "2_1": [1.03, 835, null], "7_1": [0.81, 42, null]}, "6201010": {"0_0": [0.86, 318, null], "1_0": [0.68, 595, null], "2_0": [0.4, 3008, null], "7_0": [0.56, 1534, null], "0_1": [0.63, 7, null], "1_1": [0.58, 70, null], "2_1": [0.36, 932, null], "7_1": [0.39, 42, null]}, "6201011": {"0_0": [0.99, 306, 173], "1_0": [0.87, 575, 183], "2_0": [0.62, 2918, 200], "7_0": [0.46, 1509, 136], "0_1": [0.76, 7, 165], "1_1": [0.76, 64, 183], "2_1": [0.59, 897, 195], "7_1": [0.44, 41, 175]}, "6201012": {"0_0": [0.94, 301, 195], "1_0": [0.9, 586, 203], "2_0": [0.78, 2969, 215], "7_0": [0.34, 1522, 164], "0_1": [0.66, 7, 193], "1_1": [0.78, 77, 202], "2_1": [0.78, 925, 210], "7_1": [0.41, 42, 194]}, "6201013": {"0_0": [1.13, 310, 183], "1_0": [1.01, 589, 200], "2_0": [0.82, 2968, 221], "7_0": [0.59, 1530, 108], "0_1": [0.9, 7, 182], "1_1": [0.92, 72, 198], "2_1": [0.79, 898, 218], "7_1": [0.62, 42, 177]}, "6201014": {"0_0": [1.04, 320, 188], "1_0": [1.02, 593, 206], "2_0": [0.92, 2939, 232], "7_0": [0.26, 1460, 150], "0_1": [0.92, 7, 188], "1_1": [1.02, 77, 206], "2_1": [0.88, 942, 230], "7_1": [0.39, 42, 206]}, "6201015": {"0_0": [0.98, 254, 182], "1_0": [0.94, 514, 202], "2_0": [0.76, 2844, 221], "7_0": [0.68, 1494, 85], "0_1": [0.98, 5, 190], "1_1": [0.9, 76, 205], "2_1": [0.75, 855, 221], "7_1": [0.57, 28, 107]}, "RyeBayDWR": {"0_0": [0.99, 319, 182], "1_0": [0.97, 590, 206], "2_0": [0.89, 2976, 225], "7_0": [0.67, 1514, 79], "0_1": [0.93, 7, 187], "1_1": [0.93, 68, 205], "2_1": [0.83, 916, 218], "7_1": [0.65, 42, 93]}, "6201017": {"0_0": [0.83, 313, 172], "1_0": [0.75, 565, 178], "2_0": [0.55, 2949, 181], "7_0": [0.48, 1507, 96], "0_1": [0.78, 7, 177], "1_1": [0.67, 74, 176], "2_1": [0.43, 893, 166], "7_1": [0.53, 42, 99]}, "6201018": {"0_0": [0.66, 317, 181], "1_0": [0.67, 600, 184], "2_0": [0.57, 3005, 184], "7_0": [0.69, 1472, 66], "0_1": [0.62, 7, 188], "1_1": [0.64, 76, 188], "2_1": [0.51, 935, 181], "7_1": [0.86, 42, 98]}, "WesthinderBuoy": {"0_0": [0.67, 310, null], "1_0": [0.71, 545, null], "2_0": [0.93, 2758, null], "7_0": [1.13, 1454, null], "0_1": [0.54, 7, null], "1_1": [0.67, 54, null], "2_1": [0.98, 729, null], "7_1": [1.82, 37, null]}, "AMB": {"0_0": [0.95, 1, 242], "1_0": [0.88, 6, 242], "2_0": [0.92, 29, 249], "7_0": [0.83, 15, 344], "2_1": [1.18, 8, 264]}}, "S": {"6200288": {"nom": "Hastings WaveNet", "lat": 50.746, "lon": 0.754, "type": "ref", "note": ""}, "6201010": {"nom": "Sandown Bay", "lat": 50.65, "lon": -1.13, "type": "bouee", "note": ""}, "6201011": {"nom": "Hayling Island", "lat": 50.73, "lon": -0.96, "type": "bouee", "note": ""}, "6201012": {"nom": "Bracklesham Bay", "lat": 50.72, "lon": -0.84, "type": "bouee", "note": ""}, "6201013": {"nom": "Rustington", "lat": 50.73, "lon": -0.49, "type": "bouee", "note": ""}, "6201014": {"nom": "Seaford", "lat": 50.77, "lon": 0.07, "type": "bouee", "note": ""}, "6201015": {"nom": "Pevensey Bay", "lat": 50.78, "lon": 0.42, "type": "bouee", "note": ""}, "RyeBayDWR": {"nom": "Rye Bay", "lat": 50.85, "lon": 0.79, "type": "bouee", "note": ""}, "6201017": {"nom": "Folkestone", "lat": 51.06, "lon": 1.13, "type": "bouee", "note": ""}, "6201018": {"nom": "Goodwin Sands", "lat": 51.25, "lon": 1.48, "type": "bouee", "note": ""}, "6200254": {"nom": "Gravelines", "lat": 51.04, "lon": 2.07, "type": "bouee", "note": "jusqu'en avril 2026"}, "WesthinderBuoy": {"nom": "Westhinder", "lat": 51.38, "lon": 2.44, "type": "bouee", "note": ""}, "6200305": {"nom": "Greenwich (bateau-phare)", "lat": 50.4, "lon": 0.0, "type": "phare", "note": "jusqu'en juillet 2026"}, "6200304": {"nom": "Sandettie (bateau-phare)", "lat": 51.1, "lon": 1.8, "type": "phare", "note": ""}, "6200170": {"nom": "Foxtrot (bateau-phare)", "lat": 51.24, "lon": 2.0, "type": "phare", "note": ""}, "AMB": {"nom": "Ambleteuse (Géodunes)", "lat": 50.808, "lon": 1.551, "type": "amb", "note": "17 jours seulement"}}};
+const DIRS=[["0","S","165–195°"],["1","SSO","195–225°"],["2","SO","225–255°"],["7","NE","15–75°"]];
+const TPS=[["0","mer du vent < 7 s"],["1","houle ≥ 7 s"]];
+let dir="2",tp="0";
+const carte=L.map('carte',{zoomSnap:.25}).setView([50.85,0.75],8.5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:12}).addTo(carte);
+L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms',{layers:'emodnet:mean_atlas_land',format:'image/png',transparent:true,opacity:.55,attribution:'EMODnet Bathymetry'}).addTo(carte);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:12,opacity:.8}).addTo(carte);
+const calque=L.layerGroup().addTo(carte);
+function couleur(r){const st=[[.3,[44,93,138]],[.6,[127,168,201]],[1,[233,228,212]],[1.25,[232,163,91]],[1.6,[196,83,43]]];
+ if(r<=st[0][0])return`rgb(${st[0][1]})`;for(let i=1;i<st.length;i++){if(r<=st[i][0]){const[a,ca]=st[i-1],[b,cb]=st[i];const t=(r-a)/(b-a);return`rgb(${ca.map((c,j)=>Math.round(c+(cb[j]-c)*t))})`}}return`rgb(${st[4][1]})`}
+const centre={"0":180,"1":210,"2":240,"7":45};
+function fleche(lat,lon,d){const p=carte.latLngToLayerPoint([lat,lon]);const a=(d+180)*Math.PI/180;const L1=26;
+ const q=L.point(p.x+Math.sin(a)*L1,p.y-Math.cos(a)*L1);const ll=carte.layerPointToLatLng(q);
+ const tete=[a+2.6,a-2.6].map(b=>carte.layerPointToLatLng(L.point(q.x+Math.sin(b)*8,q.y-Math.cos(b)*8)));
+ return L.polyline([[ [lat,lon],ll ],[tete[0],ll,tete[1]]],{color:'#1d2b2a',weight:2,opacity:.85,interactive:false})}
+function dessiner(){calque.clearLayers();const k=dir+"_"+tp;
+ for(const[id,s]of Object.entries(DATA.S)){let v=id==="6200288"?[1,null,centre[dir]]:(DATA.R[id]||{})[k];if(!v)continue;const[r,n,d]=v;
+  const peu=n!==null&&n<20;const rayon=8+Math.min(r,1.8)*10;
+  const st={radius:rayon,color:s.type==="amb"?'#c4532b':'#1d2b2a',weight:s.type==="amb"?3:1.2,fillColor:couleur(r),fillOpacity:peu?.35:.9,dashArray:peu?'4 3':null};
+  let m;if(s.type==="phare"){const b=carte.latLngToLayerPoint([s.lat,s.lon]);const h=rayon*.85;m=L.rectangle([carte.layerPointToLatLng(L.point(b.x-h,b.y+h)),carte.layerPointToLatLng(L.point(b.x+h,b.y-h))],{...st})}else m=L.circleMarker([s.lat,s.lon],st);
+  m.bindTooltip(`<b>${s.nom}</b><br>${id==="6200288"?"référence":"×"+r.toFixed(2).replace('.',',')+" de Hastings"}${n!==null?"<br>"+n+" heures":""}${d!=null?"<br>arrive du "+d+"°":""}${s.note?"<br><i>"+s.note+"</i>":""}`);
+  calque.addLayer(m);
+  calque.addLayer(L.marker([s.lat,s.lon],{icon:L.divIcon({className:'',html:`<span class="etiq">${id==="6200288"?"réf.":"×"+r.toFixed(2).replace('.',',')}</span>`,iconAnchor:[-rayon-2,8]}),interactive:false}));
+  if(d!=null)calque.addLayer(fleche(s.lat,s.lon,d));}
+}
+function boutons(el,liste,get,set){for(const[c,lab,sub]of liste){const b=document.createElement('button');b.textContent=lab;if(sub)b.title=sub;b.onclick=()=>{set(c);[...el.querySelectorAll('button')].forEach(x=>x.classList.toggle('on',x===b));dessiner()};if(c===get())b.classList.add('on');el.appendChild(b)}}
+boutons(document.getElementById('dirs'),DIRS,()=>dir,v=>dir=v);
+boutons(document.getElementById('tps'),TPS,()=>tp,v=>tp=v);
+carte.on('zoomend',dessiner);dessiner();
+document.getElementById('lec').innerHTML=`
+<div><h2>Houle de sud-ouest : Wimereux en prise directe</h2><p>C'est la direction de plus de la moitié des heures de houle à Hastings. La côte anglaise exposée en garde 75 à 90 % (Seaford, Rye, Pevensey). Ambleteuse mesure à peu près autant que Hastings (×0,9 à ×1,2), avec une houle qui arrive de l'ouest-sud-ouest (249–264°), donc sans abri.</p></div>
+<div><h2>Derrière Dungeness et Gris-Nez, la houle tourne et faiblit</h2><p>Folkestone et Goodwin Sands n'en reçoivent qu'un peu plus de la moitié, et elle y arrive du sud (≈ 180°) : elle a contourné Dungeness. À Gravelines, ×0,56 et elle vient du nord-ouest (≈ 290°) : elle a contourné le cap Gris-Nez. Wimereux est juste avant ce « virage ».</p></div>
+<div><h2>Vent de nord-est : l'inverse</h2><p>Westhinder et la mer du Nord prennent le dessus (×1,1), la côte du Sussex est à l'abri (×0,3). Ambleteuse ×0,8, la mer y arrive du nord (≈ 344°).</p></div>
+<div><h2>Prudence</h2><p>Ambleteuse ne fait que 17 jours de mesures communes (≈ 40 heures utiles par houle de sud-ouest) : c'est une tendance, pas une loi. Les bateaux-phares (carrés) sous-estiment la mer courte. Hastings sert de référence, mais c'est déjà une mesure côtière.</p></div>`;
+</script></body></html>

@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123239">
+<link rel="icon" type="image/png" sizes="192x192" href="icone-192.png">
+<title>Houle en direct</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --brume:   #DCE4E3;
+    --craie:   #F4F7F6;
+    --ardoise: #123239;
+    --galet:   #6B7F83;
+    --trait:   #C2CFCE;
+    --accent:  #1F5F6B;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0 auto; padding: 0 0 3rem; max-width: 64rem;
+    background: var(--brume); color: var(--ardoise);
+    font-family: "Barlow Semi Condensed", "Roboto Condensed", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.4;
+  }
+  a { color: var(--accent); }
+  header { padding: 0.9rem 1rem 0.4rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1rem; }
+  header h1 { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 1.5rem; margin: 0; }
+  header nav { display: flex; gap: 0.9rem; font-size: 0.9rem; margin-left: auto; }
+  .sous { color: var(--galet); font-size: 0.9rem; margin: 0 1rem 0.6rem; }
+
+  .cadre { position: relative; margin: 0 1rem; border-radius: 10px; overflow: hidden; border: 1px solid var(--trait); }
+  #carte { height: 62vh; min-height: 380px; background: #cfdcdc; }
+  #vagues { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 450; }
+  .horloge {
+    position: absolute; z-index: 500; right: 10px; top: 10px; text-align: right;
+    background: rgba(244,247,246,.92); border-radius: 8px; padding: 6px 10px;
+    font-size: 0.85rem; line-height: 1.25; box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  }
+  .horloge b { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 1.25rem; display: block; }
+  .horloge span { color: var(--galet); }
+
+  .temps { display: flex; align-items: center; gap: 0.6rem; margin: 0.7rem 1rem 0; flex-wrap: wrap; }
+  .temps input[type=range] { flex: 1 1 14rem; accent-color: var(--accent); }
+  button {
+    font: inherit; font-size: 0.9rem; border: 1px solid var(--trait); background: var(--craie);
+    color: var(--ardoise); padding: 4px 11px; border-radius: 6px; cursor: pointer;
+  }
+  button.on { background: var(--ardoise); color: var(--craie); border-color: var(--ardoise); }
+  .reperes { display: flex; justify-content: space-between; margin: 0 1rem; color: var(--galet); font-size: 0.75rem; }
+
+  .legende { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0.6rem 1rem 0; font-size: 0.8rem; color: var(--galet); }
+  .degrade { width: 200px; height: 9px; border-radius: 5px; }
+
+  .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 0.8rem; margin: 1rem 1rem 0; }
+  .boite { background: var(--craie); border-radius: 10px; padding: 0.8rem 1rem; }
+  .boite h2 { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 1.1rem; margin: 0 0 0.4rem; }
+  .boite p { margin: 0 0 0.45rem; }
+  .gros { font-family: Fraunces, Georgia, serif; font-size: 1.6rem; font-weight: 500; }
+  .doux { color: var(--galet); font-size: 0.85rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--trait); white-space: nowrap; }
+  th { font-weight: 500; color: var(--galet); font-size: 0.8rem; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.vieux td { color: var(--galet); }
+  svg text { font-family: inherit; }
+
+  .bouee {
+    font: 600 11px/1 "Barlow Semi Condensed", system-ui, sans-serif; color: #fff;
+    background: var(--ardoise); border: 1.5px solid #fff; border-radius: 9px;
+    padding: 2px 5px; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,.3);
+    transform: translate(-50%, -50%); display: inline-block;
+  }
+  .bouee.phare { border-radius: 2px; }
+  .bouee.muette { background: #8A9A9D; }
+  .bouee.ici { background: #A6453A; }
+  .bouee.lieu { transform: translate(6px, 2px); }
+  .bouee.lieu::before { content: ""; position: absolute; left: -7px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #A6453A; border: 1px solid #fff; }
+  .bouee { position: relative; }
+  .leaflet-div-icon { background: none; border: none; }
+  .leaflet-popup-content { font: 14px/1.35 "Barlow Semi Condensed", system-ui, sans-serif; margin: 10px 12px; }
+  footer { margin: 1.2rem 1rem 0; color: var(--galet); font-size: 0.8rem; }
+  @media (max-width: 520px) { #carte { height: 56vh; } header nav { margin-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>La houle en direct</h1>
+  <nav><a href="./">← Prévisions</a><a href="diffusion.html">Diffusion par direction</a></nav>
+</header>
+<p class="sous">Le champ de houle du modèle, recalé sur les bouées de la Manche Est, et les crêtes qui avancent à leur vraie vitesse sur le fond.</p>
+
+<div class="cadre">
+  <div id="carte"></div>
+  <canvas id="vagues"></canvas>
+  <div class="horloge"><b id="h-heure">—</b><span id="h-etat">chargement…</span></div>
+</div>
+
+<div class="temps">
+  <button id="lecture" title="Faire défiler les heures">▶ Défiler</button>
+  <input id="curseur" type="range" min="0" max="47" step="1" value="24" aria-label="Heure affichée">
+  <button id="maintenant" class="on">Maintenant</button>
+</div>
+<div class="reperes"><span id="r-debut">hier</span><span>maintenant</span><span id="r-fin">demain</span></div>
+
+<div class="legende">
+  <span>Hauteur</span><span>0</span><canvas class="degrade" id="degrade" width="200" height="9"></canvas><span>3 m</span>
+  <span>· pastilles = mesures des bouées (carré : bateau-phare) · animation : 1 s = 10 min</span>
+</div>
+
+<div class="grille">
+  <section class="boite" id="arrivee">
+    <h2>Ce qui arrive à Wimereux</h2>
+    <p class="doux">En attente des bouées…</p>
+  </section>
+  <section class="boite">
+    <h2>Ambleteuse et Hastings décalée</h2>
+    <div id="graphe"></div>
+    <p class="doux" id="graphe-note"></p>
+  </section>
+  <section class="boite" style="grid-column: 1 / -1">
+    <h2>Les bouées</h2>
+    <div style="overflow-x:auto"><table id="tableau"></table></div>
+  </section>
+  <section class="boite" style="grid-column: 1 / -1">
+    <h2>Comment c'est calculé</h2>
+    <p>Le fond coloré est la hauteur de houle du modèle européen EWAM, heure par heure.
+      Chaque bouée corrige le modèle autour d'elle : si Hastings mesure 20 % de plus que prévu,
+      la zone autour de Hastings monte d'autant, et la correction s'estompe en s'éloignant (à 60 km,
+      il n'en reste presque rien). Les bateaux-phares, qui sous-estiment la mer courte, ne servent pas à corriger.</p>
+    <p>Les crêtes partent dans la direction du modèle et avancent à la vitesse de groupe de la houle,
+      calculée avec la période et la profondeur (EMODnet). En eau peu profonde elles ralentissent
+      et tournent vers les hauts-fonds : c'est la réfraction, qui les fait arriver presque de face sur la côte.</p>
+    <p>Le temps d'arrivée prend la direction mesurée par la bouée, la distance qui la sépare de Wimereux
+      dans le sens de la houle, et la vitesse moyenne sur le trajet. C'est une estimation : la houle
+      ne garde pas sa forme entre deux bouées, surtout dans le pas de Calais.</p>
+  </section>
+</div>
+
+<footer>
+  Bouées : <a href="https://wavenet.cefas.co.uk/">Cefas WaveNet</a> (Cefas, Channel Coastal Observatory, Met Office),
+  bouée d'Ambleteuse <a href="https://www.geodunes.fr/">Géodunes</a>, relevées toutes les 30 minutes en journée.
+  Modèle : <a href="https://open-meteo.com/">Open-Meteo</a> (EWAM, DWD).
+  Profondeurs : <a href="https://emodnet.ec.europa.eu/en/bathymetry">EMODnet Bathymetry</a>.
+  Fond de carte © OpenStreetMap, CARTO.
+</footer>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- données fixes
+// Profondeur en mètres (0 = terre), grille de 0,1° de -1,8 à 2,6 E et de 49,6 à 51,6 N.
+const BATHY = { x0: -1.8, y0: 49.6, d: 0.1, nx: 45, ny: 21, z: [0,0,0,0,0,0,14,30,32,30,32,42,35,27,24,25,26,24,21,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,18,26,28,28,0,11,37,40,38,40,46,39,33,34,34,34,35,33,32,25,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,59,54,56,67,64,60,55,49,51,48,41,38,40,38,38,37,36,36,32,28,24,22,19,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,63,70,67,69,67,64,60,57,51,47,45,45,46,44,46,43,40,38,36,34,31,28,26,23,23,20,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,67,80,73,72,69,70,58,54,53,54,59,60,56,52,56,45,46,45,37,35,33,31,34,29,28,26,25,24,22,14,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,59,62,67,63,62,60,53,54,51,50,49,51,51,47,45,46,53,42,38,37,36,34,34,32,31,31,28,26,19,14,14,13,7,0,0,0,0,0,0,0,0,0,0,0,0,56,56,54,55,70,89,68,75,55,54,49,48,49,49,49,47,49,46,44,42,39,36,37,34,34,31,29,30,27,26,23,9,11,0,0,0,0,0,0,0,0,0,0,0,0,57,50,48,53,57,57,57,53,64,63,60,57,48,46,45,44,48,48,47,43,37,40,42,47,40,41,34,30,33,28,26,24,10,5,0,0,0,0,0,0,0,0,0,0,0,37,41,38,37,37,36,35,36,36,51,54,64,49,48,47,43,57,53,53,47,45,38,42,42,38,38,35,35,33,31,20,23,22,8,0,0,0,0,0,0,0,0,0,0,0,40,37,36,35,33,38,33,33,27,26,25,42,66,73,54,61,61,59,44,53,48,45,43,41,37,34,33,33,44,29,13,27,10,16,0,0,0,0,0,0,0,0,0,0,0,25,29,31,29,28,0,0,33,28,26,25,33,30,40,47,60,51,58,56,59,54,54,42,45,47,39,38,38,32,29,36,8,26,22,0,0,0,0,0,0,0,0,0,0,0,14,12,7,2,0,0,0,0,9,12,6,6,19,15,17,21,24,24,26,25,23,31,25,26,43,47,42,33,33,28,32,48,33,18,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,0,0,0,2,0,0,0,0,1,5,9,10,0,0,0,0,7,12,11,16,30,33,36,33,30,24,51,27,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,9,28,31,29,30,52,45,16,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,23,26,25,40,42,39,29,17,11,0,0,0,0,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,24,30,51,36,36,27,6,32,15,25,4,3,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,51,40,38,36,34,33,29,11,23,18,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,12,19,48,37,39,36,25,34,32,15,27,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,1,5,7,13,17,43,26,40,37,36,34,30,31,30,29,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,10,10,11,17,9,1,14,12,19,23,31,41,45,44,40,41,35,38,34,33,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,18,18,5,24,1,35,44,43,49,47,37,38,34,33,34] };
+const ZONE = { o: -1.8, e: 2.6, s: 49.6, n: 51.6 };
+const WIMEREUX = [50.770, 1.605];
+const ACCEL = 600;            // 1 s d'animation = 10 min réelles
+const G = 9.81;
+// Rapport Ambleteuse / Hastings selon la direction à Hastings (étude de diffusion).
+const RAPPORT_AMB = [[165, 195, 0.95], [195, 225, 0.88], [225, 255, 0.92], [255, 285, 0.9]];
+
+// Grille du modèle demandée à Open-Meteo.
+const MOD = { x0: -1.75, y0: 49.8, dx: 0.25, dy: 0.2, nx: 18, ny: 9 };
+
+// ---------------------------------------------------------------- outils
+const $ = s => document.querySelector(s);
+const borne = (v, a, b) => Math.max(a, Math.min(b, v));
+const rad = d => d * Math.PI / 180;
+const fmt = (v, n = 1) => v == null || isNaN(v) ? "—" : v.toFixed(n).replace(".", ",");
+const heureFr = d => d.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+const jourFr = d => d.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", weekday: "short", day: "numeric" });
+const rose = d => d == null ? "" : ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"][Math.round(((d % 360) + 360) % 360 / 22.5) % 16];
+const utc = s => new Date(s.endsWith("Z") ? s : s + "Z");
+
+function profondeur(lat, lon) {
+  const fx = (lon - BATHY.x0) / BATHY.d, fy = (lat - BATHY.y0) / BATHY.d;
+  if (fx < 0 || fy < 0 || fx > BATHY.nx - 1 || fy > BATHY.ny - 1) return 0;
+  const i = Math.min(Math.floor(fx), BATHY.nx - 2), j = Math.min(Math.floor(fy), BATHY.ny - 2);
+  const a = fx - i, b = fy - j, z = (ii, jj) => BATHY.z[jj * BATHY.nx + ii];
+  return z(i, j) * (1 - a) * (1 - b) + z(i + 1, j) * a * (1 - b) + z(i, j + 1) * (1 - a) * b + z(i + 1, j + 1) * a * b;
+}
+
+// Relation de dispersion : nombre d'onde, vitesse de phase et de groupe.
+function ondes(T, h) {
+  h = Math.max(h, 2);
+  const w = 2 * Math.PI / T;
+  let k = w * w / G;
+  k = k / Math.sqrt(Math.tanh(k * h));
+  for (let n = 0; n < 3; n++) {
+    const th = Math.tanh(k * h);
+    const f = G * k * th - w * w, df = G * th + G * k * h * (1 - th * th);
+    k -= f / df;
+  }
+  const c = w / k, kh = k * h;
+  const cg = c / 2 * (1 + (kh > 20 ? 0 : 2 * kh / Math.sinh(2 * kh)));
+  return { c, cg };
+}
+
+// Distances locales en km (plan tangent autour de la Manche Est).
+const KM_LAT = 111.2, kmLon = lat => 111.2 * Math.cos(rad(lat));
+function versKm(a, b) { // de a=[lat,lon] vers b
+  return [(b[1] - a[1]) * kmLon((a[0] + b[0]) / 2), (b[0] - a[0]) * KM_LAT];
+}
+
+// ---------------------------------------------------------------- état
+let modele = null;   // { temps: [Date], H, UX, UY, T : [heure][cellule] }
+let bouees = [];     // depuis houle.json
+let majBouees = null;
+let tau = 24;        // heure affichée, en index (fractionnaire en lecture)
+let iMaintenant = 24;
+let correction = null; // facteurs des bouées à l'heure affichée
+
+// ---------------------------------------------------------------- modèle
+async function chargerModele() {
+  const la = [], lo = [];
+  for (let j = 0; j < MOD.ny; j++) for (let i = 0; i < MOD.nx; i++) {
+    la.push((MOD.y0 + j * MOD.dy).toFixed(2)); lo.push((MOD.x0 + i * MOD.dx).toFixed(2));
+  }
+  const url = "https://marine-api.open-meteo.com/v1/marine?latitude=" + la.join(",") +
+    "&longitude=" + lo.join(",") +
+    "&hourly=wave_height,wave_direction,wave_period&models=ewam" +
+    "&past_hours=24&forecast_hours=24&timezone=GMT&cell_selection=sea";
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("Open-Meteo " + r.status);
+  let j = await r.json();
+  if (!Array.isArray(j)) j = [j];
+  const temps = j[0].hourly.time.map(utc);
+  const nt = temps.length, nc = j.length;
+  const H = [], UX = [], UY = [], T = [];
+  for (let t = 0; t < nt; t++) {
+    const h = new Array(nc), ux = new Array(nc), uy = new Array(nc), tt = new Array(nc);
+    for (let c = 0; c < nc; c++) {
+      const o = j[c].hourly;
+      const v = o.wave_height[t], d = o.wave_direction[t], p = o.wave_period[t];
+      if (v == null || d == null) { h[c] = null; continue; }
+      // Sens de propagation : la houle va vers direction + 180°.
+      h[c] = v; ux[c] = Math.sin(rad(d + 180)); uy[c] = Math.cos(rad(d + 180));
+      // Période moyenne du modèle ; la période pic est en général 15 à 25 % plus longue.
+      tt[c] = (p || 5) * 1.2;
+    }
+    combler(h, ux, uy, tt);
+    H.push(h); UX.push(ux); UY.push(uy); T.push(tt);
+  }
+  modele = { temps, H, UX, UY, T };
+}
+
+// Les mailles côtières sont souvent vides : on les remplit avec leurs voisines.
+function combler(h, ux, uy, tt) {
+  for (let passe = 0; passe < 4; passe++) {
+    const vides = [];
+    for (let j = 0; j < MOD.ny; j++) for (let i = 0; i < MOD.nx; i++) {
+      const c = j * MOD.nx + i;
+      if (h[c] != null) continue;
+      let n = 0, sh = 0, sx = 0, sy = 0, st = 0;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const ii = i + di, jj = j + dj;
+        if (ii < 0 || jj < 0 || ii >= MOD.nx || jj >= MOD.ny) continue;
+        const v = jj * MOD.nx + ii;
+        if (h[v] == null) continue;
+        n++; sh += h[v]; sx += ux[v]; sy += uy[v]; st += tt[v];
+      }
+      if (n) vides.push([c, sh / n, sx / n, sy / n, st / n]);
+    }
+    for (const [c, a, b, d, e] of vides) { h[c] = a; const m = Math.hypot(b, d) || 1; ux[c] = b / m; uy[c] = d / m; tt[c] = e; }
+  }
+}
+
+// Valeur du modèle en un point, à une heure fractionnaire.
+function champ(lat, lon, t) {
+  if (!modele) return null;
+  const t0 = borne(Math.floor(t), 0, modele.H.length - 1), t1 = Math.min(t0 + 1, modele.H.length - 1), ft = borne(t - t0, 0, 1);
+  const fx = borne((lon - MOD.x0) / MOD.dx, 0, MOD.nx - 1.001), fy = borne((lat - MOD.y0) / MOD.dy, 0, MOD.ny - 1.001);
+  const i = Math.floor(fx), j = Math.floor(fy), a = fx - i, b = fy - j;
+  let s = 0, h = 0, ux = 0, uy = 0, T = 0;
+  for (const [tt, wt] of [[t0, 1 - ft], [t1, ft]]) {
+    if (wt === 0) continue;
+    for (const [ii, jj, w] of [[i, j, (1 - a) * (1 - b)], [i + 1, j, a * (1 - b)], [i, j + 1, (1 - a) * b], [i + 1, j + 1, a * b]]) {
+      const c = jj * MOD.nx + ii, v = modele.H[tt][c];
+      if (v == null || w === 0) continue;
+      const ww = w * wt;
+      s += ww; h += v * ww; ux += modele.UX[tt][c] * ww; uy += modele.UY[tt][c] * ww; T += modele.T[tt][c] * ww;
+    }
+  }
+  if (!s) return null;
+  const m = Math.hypot(ux, uy) || 1;
+  return { h: h / s, ux: ux / m, uy: uy / m, T: T / s };
+}
+
+// ---------------------------------------------------------------- bouées
+async function chargerBouees() {
+  try {
+    const r = await fetch("houle.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const j = await r.json();
+    bouees = j.bouees || [];
+    majBouees = j.maj ? utc(j.maj) : null;
+  } catch (e) { /* pas encore de relevé : la carte marche avec le modèle seul */ }
+}
+
+// La mesure d'une bouée la plus proche d'un instant, à 40 minutes près.
+function mesureA(b, quand, tolMin = 40) {
+  let best = null, ecart = Infinity;
+  for (const m of b.serie) {
+    const e = Math.abs(utc(m[0]) - quand);
+    if (e < ecart) { ecart = e; best = m; }
+  }
+  return best && ecart <= tolMin * 60000 ? best : null;
+}
+const derniere = b => b.serie[b.serie.length - 1];
+
+function instantDe(t) {
+  if (!modele) return new Date();
+  const i = Math.floor(t), f = t - i;
+  const a = modele.temps[borne(i, 0, modele.temps.length - 1)];
+  return new Date(a.getTime() + f * 3600000);
+}
+
+// Rapport mesure / modèle de chaque bouée à l'heure affichée.
+function calculerCorrection(t) {
+  const quand = instantDe(t);
+  correction = [];
+  for (const b of bouees) {
+    if (b.phare) continue;
+    const m = mesureA(b, quand);
+    if (!m || m[1] == null) continue;
+    const c = champ(b.lat, b.lon, t);
+    if (!c || c.h < 0.1) continue;
+    correction.push({ lat: b.lat, lon: b.lon, lr: Math.log(borne(m[1] / c.h, 0.5, 2)) });
+  }
+}
+
+// Facteur de correction en un point : moyenne pondérée des rapports
+// (en logarithme), tirée vers 1 loin des bouées.
+function facteur(lat, lon) {
+  if (!correction || !correction.length) return 1;
+  let s = 1 / (60 * 60), n = 0;
+  for (const c of correction) {
+    const [x, y] = versKm([c.lat, c.lon], [lat, lon]);
+    const w = 1 / (x * x + y * y + 100);
+    s += w; n += w * c.lr;
+  }
+  return Math.exp(n / s);
+}
+
+// ---------------------------------------------------------------- couleurs
+const PALETTE = [[0, [232, 240, 240]], [0.5, [190, 217, 222]], [1, [120, 178, 193]], [1.5, [52, 128, 155]], [2, [28, 84, 118]], [3, [44, 38, 92]]];
+function couleur(h) {
+  if (h <= 0) return PALETTE[0][1];
+  for (let k = 1; k < PALETTE.length; k++) {
+    if (h <= PALETTE[k][0]) {
+      const [a, ca] = PALETTE[k - 1], [b, cb] = PALETTE[k], f = (h - a) / (b - a);
+      return ca.map((v, i) => Math.round(v + (cb[i] - v) * f));
+    }
+  }
+  return PALETTE[PALETTE.length - 1][1];
+}
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+(function () {
+  const g = $("#degrade").getContext("2d");
+  for (let x = 0; x < 200; x++) { g.fillStyle = css(couleur(x / 200 * 3)); g.fillRect(x, 0, 1, 9); }
+})();
+
+// ---------------------------------------------------------------- carte
+const carte = L.map("carte", { zoomControl: true, attributionControl: true, minZoom: 7, maxZoom: 12 })
+  .fitBounds(innerWidth < 600 ? [[50.5, 0.4], [51.05, 1.85]] : [[50.2, -0.6], [51.2, 2.1]]);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+  attribution: "© OpenStreetMap, © CARTO", subdomains: "abcd", maxZoom: 12,
+}).addTo(carte);
+carte.createPane("etiquettes").style.zIndex = 460;
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
+  subdomains: "abcd", maxZoom: 12, pane: "etiquettes",
+}).addTo(carte);
+
+let calque = null;
+const mercY = lat => Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2));
+function dessinerChamp(t) {
+  if (!modele) return;
+  const W = 264, Y0 = mercY(ZONE.s), Y1 = mercY(ZONE.n);
+  const Hpx = Math.round(W * (Y1 - Y0) / rad(ZONE.e - ZONE.o));
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = Hpx;
+  const g = cv.getContext("2d"), img = g.createImageData(W, Hpx);
+  for (let py = 0; py < Hpx; py++) {
+    const y = Y1 - (py + 0.5) / Hpx * (Y1 - Y0);
+    const lat = (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI;
+    for (let px = 0; px < W; px++) {
+      const lon = ZONE.o + (px + 0.5) / W * (ZONE.e - ZONE.o);
+      const p = profondeur(lat, lon), k = (py * W + px) * 4;
+      if (p < 0.5) { img.data[k + 3] = 0; continue; }
+      const c = champ(lat, lon, t);
+      if (!c) { img.data[k + 3] = 0; continue; }
+      const col = couleur(c.h * facteur(lat, lon));
+      img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2];
+      img.data[k + 3] = Math.round(215 * borne((p - 0.5) / 6, 0, 1));
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const url = cv.toDataURL();
+  const bornes = [[ZONE.s, ZONE.o], [ZONE.n, ZONE.e]];
+  if (calque) calque.setUrl(url);
+  else calque = L.imageOverlay(url, bornes, { opacity: 0.85, className: "champ" }).addTo(carte);
+}
+
+// ---------------------------------------------------------------- cretes
+const toile = $("#vagues"), ctx = toile.getContext("2d");
+let cretes = [], dernierInstant = 0, effacer = true;
+function taille() {
+  const r = toile.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  toile.width = Math.round(r.width * dpr); toile.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  effacer = true;
+}
+window.addEventListener("resize", taille);
+carte.on("movestart zoomstart resize", () => { effacer = true; });
+
+function naitre() {
+  const b = carte.getBounds();
+  const s = Math.max(b.getSouth(), ZONE.s), n = Math.min(b.getNorth(), ZONE.n);
+  const o = Math.max(b.getWest(), ZONE.o), e = Math.min(b.getEast(), ZONE.e);
+  for (let essai = 0; essai < 25; essai++) {
+    const lat = s + Math.random() * (n - s), lon = o + Math.random() * (e - o);
+    if (profondeur(lat, lon) < 2) continue;
+    const c = champ(lat, lon, tau);
+    if (!c || c.h < 0.12) continue;
+    return { lat, lon, ux: c.ux, uy: c.uy, age: 0, vie: 3 + Math.random() * 4 };
+  }
+  return null;
+}
+
+function avancer(p, dt) {
+  const c = champ(p.lat, p.lon, tau);
+  const h = profondeur(p.lat, p.lon);
+  if (!c || h < 1) return false;
+  const o = ondes(c.T, h);
+  const ds = o.cg * dt * ACCEL;                       // mètres parcourus
+  // Réfraction : la crête tourne vers là où l'onde va moins vite (moins de fond).
+  const pas = 0.02, kmx = kmLon(p.lat) * 1000 * pas, kmy = KM_LAT * 1000 * pas;
+  const ce = ondes(c.T, profondeur(p.lat, p.lon + pas)).c, cw = ondes(c.T, profondeur(p.lat, p.lon - pas)).c;
+  const cn = ondes(c.T, profondeur(p.lat + pas, p.lon)).c, cs = ondes(c.T, profondeur(p.lat - pas, p.lon)).c;
+  const gx = (ce - cw) / (2 * kmx), gy = (cn - cs) / (2 * kmy);
+  const proj = gx * p.ux + gy * p.uy;
+  p.ux -= (gx - proj * p.ux) / o.c * ds;
+  p.uy -= (gy - proj * p.uy) / o.c * ds;
+  // Au large, on suit la direction du modèle.
+  const rappel = Math.min(1, ds / 40000);
+  p.ux += (c.ux - p.ux) * rappel; p.uy += (c.uy - p.uy) * rappel;
+  const m = Math.hypot(p.ux, p.uy) || 1; p.ux /= m; p.uy /= m;
+  p.lat += p.uy * ds / (KM_LAT * 1000);
+  p.lon += p.ux * ds / (kmLon(p.lat) * 1000);
+  p.h = c.h * facteur(p.lat, p.lon);
+  return p.lat > ZONE.s && p.lat < ZONE.n && p.lon > ZONE.o && p.lon < ZONE.e;
+}
+
+function animer(now) {
+  const dt = borne((now - dernierInstant) / 1000, 0, 0.06); dernierInstant = now;
+  const w = toile.clientWidth, hgt = toile.clientHeight;
+  if (effacer) { ctx.clearRect(0, 0, w, hgt); effacer = false; }
+  else {
+    // Les cretes laissent une traînée qui s'efface.
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(0, 0, w, hgt);
+    ctx.globalCompositeOperation = "source-over";
+  }
+  const cible = Math.round(borne(w * hgt / 2000, 80, 380));
+  while (cretes.length < cible) { const p = naitre(); if (!p) break; cretes.push(p); }
+  const z = carte.getZoom(), echelle = Math.pow(2, z - 8);
+  ctx.lineCap = "round";
+  cretes = cretes.filter(p => {
+    p.age += dt;
+    if (p.age > p.vie || !avancer(p, dt)) return false;
+    const pt = carte.latLngToContainerPoint([p.lat, p.lon]);
+    if (pt.x < -20 || pt.y < -20 || pt.x > w + 20 || pt.y > hgt + 20) return false;
+    const sx = p.ux, sy = -p.uy;                       // sens de propagation à l'écran
+    const L2 = (2.5 + 4 * (p.h || 0)) * Math.min(echelle, 2.5);
+    const fondu = Math.min(1, p.age / 0.6, (p.vie - p.age) / 0.8);
+    ctx.strokeStyle = `rgba(255,255,255,${(fondu * borne(0.35 + (p.h || 0) / 2, 0, 0.95)).toFixed(3)})`;
+    ctx.lineWidth = 0.9 + (p.h || 0) * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(pt.x - sy * L2 - sx * L2 * 0.3, pt.y + sx * L2 - sy * L2 * 0.3);
+    ctx.quadraticCurveTo(pt.x + sx * L2 * 0.25, pt.y + sy * L2 * 0.25,
+                         pt.x + sy * L2 - sx * L2 * 0.3, pt.y - sx * L2 - sy * L2 * 0.3);
+    ctx.stroke();
+    return true;
+  });
+  if (lecture) {
+    tau += dt * ACCEL / 3600;
+    if (tau > modele.temps.length - 1) tau = 0;
+    if (Math.floor(tau) !== Math.floor(tau - dt * ACCEL / 3600)) changerHeure(false);
+    majHorloge();
+  }
+  requestAnimationFrame(animer);
+}
+
+// ---------------------------------------------------------------- pastilles des bouées
+const marqueurs = L.layerGroup().addTo(carte);
+function dessinerBouees() {
+  marqueurs.clearLayers();
+  const quand = instantDe(tau);
+  for (const b of bouees) {
+    const m = mesureA(b, quand);
+    const cls = "bouee" + (b.phare ? " phare" : "") + (m ? "" : " muette") + (b.id === "AMB" ? " ici" : "");
+    const txt = m ? fmt(m[1]) + " m" : "·";
+    const icone = L.divIcon({ className: "", html: `<span class="${cls}" style="${m ? `background:${css(couleur(m[1]))};color:${m[1] > 1.2 ? "#fff" : "#123239"}` : ""}">${txt}</span>`, iconSize: [0, 0] });
+    L.marker([b.lat, b.lon], { icon: icone, keyboard: false }).bindPopup(() => fiche(b)).addTo(marqueurs);
+  }
+  L.marker(WIMEREUX, { icon: L.divIcon({ className: "", html: '<span class="bouee ici lieu">Wimereux</span>', iconSize: [0, 0] }), interactive: false }).addTo(marqueurs);
+}
+
+function fiche(b) {
+  const m = derniere(b);
+  const c = modele ? champ(b.lat, b.lon, iMaintenant) : null;
+  let html = `<b>${b.nom}</b>${b.phare ? " <span class='doux'>(bateau-phare)</span>" : ""}<br>`;
+  html += `${fmt(m[1])} m · ${fmt(m[2])} s${m[3] != null ? " · du " + rose(m[3]) + " (" + Math.round(m[3]) + "°)" : ""}<br>`;
+  html += `<span class="doux">mesure de ${heureFr(utc(m[0]))}${c ? " · modèle " + fmt(c.h) + " m" : ""}</span>`;
+  html += sparkline(b, 230, 54);
+  return html;
+}
+
+// Petite courbe : mesures (trait plein) et modèle au même endroit (pointillé).
+function sparkline(b, W, H) {
+  if (!modele || b.serie.length < 2) return "";
+  const t0 = utc(b.serie[0][0]).getTime(), t1 = modele.temps[modele.temps.length - 1].getTime();
+  const pts = b.serie.filter(m => m[1] != null);
+  const mod = modele.temps.map((t, i) => [t.getTime(), (champ(b.lat, b.lon, i) || {}).h]).filter(v => v[0] >= t0 && v[1] != null);
+  const max = Math.max(0.5, ...pts.map(m => m[1]), ...mod.map(v => v[1])) * 1.1;
+  const X = t => 2 + (t - t0) / (t1 - t0) * (W - 4), Y = v => H - 12 - v / max * (H - 16);
+  const ligne = a => a.map((v, i) => (i ? "L" : "M") + X(v[0]).toFixed(1) + " " + Y(v[1]).toFixed(1)).join("");
+  const xn = X(Date.now());
+  return `<svg width="${W}" height="${H}" style="display:block;margin-top:6px">
+    <line x1="${xn}" x2="${xn}" y1="2" y2="${H - 12}" stroke="#C2CFCE"/>
+    <path d="${ligne(mod)}" fill="none" stroke="#6B7F83" stroke-width="1.2" stroke-dasharray="3 2"/>
+    <path d="${ligne(pts.map(m => [utc(m[0]).getTime(), m[1]]))}" fill="none" stroke="#123239" stroke-width="1.8"/>
+    <text x="2" y="${H - 1}" font-size="10" fill="#6B7F83">mesure — modèle ┄ · max ${fmt(max / 1.1)} m</text></svg>`;
+}
+
+// ---------------------------------------------------------------- temps de trajet
+function rapportAmb(dir) {
+  if (dir == null) return null;
+  for (const [a, b, r] of RAPPORT_AMB) if (dir >= a && dir < b) return r;
+  return null;
+}
+
+// Retard (en heures) d'un front de houle entre une bouée et Wimereux.
+function trajet(b, m) {
+  let ux, uy;
+  if (m[3] != null) { ux = Math.sin(rad(m[3] + 180)); uy = Math.cos(rad(m[3] + 180)); }
+  else { const c = champ(b.lat, b.lon, iMaintenant); if (!c) return null; ux = c.ux; uy = c.uy; }
+  const [dx, dy] = versKm([b.lat, b.lon], WIMEREUX);
+  const avant = dx * ux + dy * uy, cote = Math.abs(dx * uy - dy * ux);
+  const T = m[2] || 6;
+  let s = 0, n = 0;
+  for (let k = 0; k <= 20; k++) {
+    const f = k / 20, lat = b.lat + (WIMEREUX[0] - b.lat) * f, lon = b.lon + (WIMEREUX[1] - b.lon) * f;
+    const h = profondeur(lat, lon);
+    if (h < 2) continue;
+    s += ondes(T, h).cg; n++;
+  }
+  const cg = n ? s / n : ondes(T, 30).cg;
+  return { avant, cote, cg, heures: avant * 1000 / cg / 3600, ux, uy };
+}
+
+function majArrivee() {
+  const el = $("#arrivee");
+  const has = bouees.find(b => b.id === "HASTINGSWN");
+  const amb = bouees.find(b => b.id === "AMB");
+  let html = "<h2>Ce qui arrive à Wimereux</h2>";
+  if (!bouees.length) { el.innerHTML = html + "<p class='doux'>Pas encore de relevé des bouées : le premier arrive dans la demi-heure.</p>"; return; }
+  if (has) {
+    const m = derniere(has), tr = trajet(has, m), t = utc(m[0]);
+    const r = rapportAmb(m[3]);
+    if (tr && tr.avant > 3) {
+      const arrivee = new Date(t.getTime() + tr.heures * 3600000);
+      const passe = arrivee < new Date();
+      html += `<p>La houle mesurée à <b>Hastings</b> à ${heureFr(t)} — ${fmt(m[1])} m, ${fmt(m[2])} s, du ${rose(m[3])} —
+        ${passe ? "est arrivée" : "arrive"} à Wimereux vers</p>
+        <p class="gros">${heureFr(arrivee)}</p>
+        <p class="doux">${fmt(tr.avant, 0)} km dans le sens de la houle, à ${fmt(tr.cg * 3.6, 0)} km/h en moyenne : ${Math.floor(tr.heures)} h ${String(Math.round(tr.heures % 1 * 60)).padStart(2, "0")} de trajet.
+        ${r ? `À cette direction, Ambleteuse mesure d'habitude ×${fmt(r, 2)} : <b>${fmt(m[1] * r)} m</b> attendus.` : "Hors des directions où Hastings sert de relais : la hauteur à Wimereux n'est pas transposable."}</p>`;
+    } else if (tr) {
+      html += `<p>Par houle du ${rose(m[3])}, le front touche Wimereux <b>en même temps ou avant</b> Hastings :
+        Hastings ne donne pas d'avance aujourd'hui.</p>`;
+    }
+  }
+  // Les autres bouées en amont, pour une avance plus longue.
+  const amont = bouees.filter(b => !b.phare && b.id !== "HASTINGSWN" && b.id !== "AMB").map(b => {
+    const m = derniere(b); const tr = trajet(b, m);
+    return tr && tr.avant > 15 && tr.cote < 70 && (Date.now() - utc(m[0])) < 3 * 3600000 ? { b, m, tr } : null;
+  }).filter(Boolean).sort((a, b) => b.tr.avant - a.tr.avant).slice(0, 3);
+  if (amont.length) {
+    html += "<p class='doux' style='margin-top:.6rem'>Plus en amont :</p><table>";
+    for (const { b, m, tr } of amont) {
+      const a = new Date(utc(m[0]).getTime() + tr.heures * 3600000);
+      html += `<tr><td>${b.nom}</td><td class="n">${fmt(m[1])} m</td><td class="n">${fmt(m[2])} s</td><td class="n">→ ${heureFr(a)}</td></tr>`;
+    }
+    html += "</table>";
+  }
+  if (amb) {
+    const m = derniere(amb);
+    html += `<p class="doux" style="margin-top:.6rem">Ambleteuse mesure ${fmt(m[1])} m, ${fmt(m[2])} s à ${heureFr(utc(m[0]))}.</p>`;
+  }
+  el.innerHTML = html;
+}
+
+// Ambleteuse contre Hastings décalée de son temps de trajet.
+function majGraphe() {
+  const has = bouees.find(b => b.id === "HASTINGSWN"), amb = bouees.find(b => b.id === "AMB");
+  if (!has || !amb || has.serie.length < 2) { $("#graphe").innerHTML = "<p class='doux'>Il faut quelques heures de relevés pour tracer la comparaison.</p>"; return; }
+  const W = Math.min(560, $("#graphe").clientWidth || 320), H = 150;
+  const tr = trajet(has, derniere(has));
+  const dec = tr && tr.avant > 0 ? tr.heures * 3600000 : 0;
+  const A = amb.serie.filter(m => m[1] != null).map(m => [utc(m[0]).getTime(), m[1]]);
+  const Hs = has.serie.filter(m => m[1] != null).map(m => [utc(m[0]).getTime() + dec, m[1] * (rapportAmb(m[3]) || 1)]);
+  const t0 = Math.min(...A.map(v => v[0]), ...Hs.map(v => v[0])), t1 = Math.max(Date.now(), ...Hs.map(v => v[0]));
+  const max = Math.max(0.5, ...A.map(v => v[1]), ...Hs.map(v => v[1])) * 1.15;
+  const X = t => 28 + (t - t0) / (t1 - t0 || 1) * (W - 34), Y = v => H - 18 - v / max * (H - 26);
+  const ligne = a => a.map((v, i) => (i ? "L" : "M") + X(v[0]).toFixed(1) + " " + Y(v[1]).toFixed(1)).join("");
+  let axes = "";
+  for (let v = 0; v <= max; v += max > 2 ? 1 : 0.5) axes += `<line x1="28" x2="${W - 6}" y1="${Y(v)}" y2="${Y(v)}" stroke="#DCE4E3"/><text x="2" y="${Y(v) + 4}" font-size="10" fill="#6B7F83">${fmt(v, v % 1 ? 1 : 0)} m</text>`;
+  for (let t = Math.ceil(t0 / 21600000) * 21600000; t < t1; t += 21600000) axes += `<text x="${X(t) - 10}" y="${H - 3}" font-size="10" fill="#6B7F83">${heureFr(new Date(t))}</text>`;
+  const xn = X(Date.now());
+  $("#graphe").innerHTML = `<svg width="${W}" height="${H}" role="img" aria-label="Hauteurs mesurées à Ambleteuse et à Hastings décalée">
+    ${axes}<line x1="${xn}" x2="${xn}" y1="4" y2="${H - 18}" stroke="#C2CFCE" stroke-dasharray="2 2"/>
+    <path d="${ligne(Hs)}" fill="none" stroke="#6B7F83" stroke-width="1.6" stroke-dasharray="4 3"/>
+    <path d="${ligne(A)}" fill="none" stroke="#A6453A" stroke-width="2"/></svg>`;
+  $("#graphe-note").innerHTML = `<span style="color:#A6453A">━</span> Ambleteuse mesurée · <span>┅</span> Hastings ×rapport habituel, décalée de ${tr ? fmt(Math.max(0, tr.heures), 1) : "0"} h. Si les deux courbes se suivent, le décalage est bon ; la partie pointillée à droite de la ligne verticale est ce qui reste à venir.`;
+}
+
+function majTableau() {
+  const quand = new Date();
+  let html = "<tr><th>Bouée</th><th>Hauteur</th><th>Période</th><th>Direction</th><th>Mesure</th><th>Modèle</th></tr>";
+  for (const b of [...bouees].sort((a, b) => a.lon - b.lon)) {
+    const m = derniere(b), t = utc(m[0]);
+    const c = modele ? champ(b.lat, b.lon, iMaintenant) : null;
+    const vieux = quand - t > 3 * 3600000;
+    html += `<tr class="${vieux ? "vieux" : ""}"><td>${b.nom}</td><td class="n">${fmt(m[1])} m</td><td class="n">${fmt(m[2])} s</td>
+      <td>${m[3] != null ? rose(m[3]) + " " + Math.round(m[3]) + "°" : "—"}</td><td>${vieux ? jourFr(t) + " " : ""}${heureFr(t)}</td><td class="n">${c ? fmt(c.h) + " m" : "—"}</td></tr>`;
+  }
+  $("#tableau").innerHTML = bouees.length ? html : "<tr><td class='doux'>Pas encore de relevé.</td></tr>";
+}
+
+// ---------------------------------------------------------------- temps affiché
+let lecture = false;
+function majHorloge() {
+  const q = instantDe(tau);
+  $("#h-heure").textContent = jourFr(q) + " " + heureFr(q);
+  const ecart = Math.round(tau - iMaintenant);
+  $("#h-etat").textContent = (ecart === 0 ? "maintenant" : ecart < 0 ? "il y a " + -ecart + " h" : "prévision +" + ecart + " h") +
+    (correction && correction.length ? " · " + correction.length + " bouées" : " · modèle seul");
+}
+function changerHeure(curseur = true) {
+  calculerCorrection(tau);
+  dessinerChamp(tau);
+  dessinerBouees();
+  if (curseur) $("#curseur").value = Math.round(tau);
+  else $("#curseur").value = Math.floor(tau);
+  $("#maintenant").classList.toggle("on", Math.round(tau) === iMaintenant && !lecture);
+  majHorloge();
+}
+$("#curseur").addEventListener("input", e => { lecture = false; $("#lecture").classList.remove("on"); tau = +e.target.value; changerHeure(); });
+$("#maintenant").addEventListener("click", () => { lecture = false; $("#lecture").classList.remove("on"); tau = iMaintenant; changerHeure(); });
+$("#lecture").addEventListener("click", e => { lecture = !lecture; e.target.classList.toggle("on", lecture); if (lecture && tau >= modele.temps.length - 1.5) tau = 0; });
+
+// ---------------------------------------------------------------- démarrage
+async function demarrer() {
+  taille();
+  requestAnimationFrame(t => { dernierInstant = t; requestAnimationFrame(animer); });
+  try {
+    await Promise.all([chargerModele(), chargerBouees()]);
+  } catch (e) {
+    $("#h-etat").textContent = "modèle indisponible : " + e.message;
+  }
+  if (modele) {
+    const n = Date.now();
+    iMaintenant = modele.temps.reduce((best, t, i) => Math.abs(t - n) < Math.abs(modele.temps[best] - n) ? i : best, 0);
+    tau = iMaintenant;
+    $("#curseur").max = modele.temps.length - 1;
+    const d = modele.temps[0], f = modele.temps[modele.temps.length - 1];
+    $("#r-debut").textContent = jourFr(d) + " " + heureFr(d);
+    $("#r-fin").textContent = jourFr(f) + " " + heureFr(f);
+    changerHeure();
+  }
+  majArrivee(); majTableau(); majGraphe();
+}
+demarrer();
+// Les bouées sont relevées toutes les 30 min : on relit le fichier régulièrement.
+setInterval(async () => { await chargerBouees(); changerHeure(); majArrivee(); majTableau(); majGraphe(); }, 10 * 60000);
+</script>
+</body>
+</html>
