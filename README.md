@@ -11,7 +11,7 @@ Les deux spots ne se ressemblent pas et sont paramétrés séparément :
 |---|---|---|
 | Bouée de référence | Hastings (CEFAS) | Sandettie |
 | La plage regarde vers | l'ouest-nord-ouest | le nord |
-| Fenêtre de houle | 200-270° | 300-60° |
+| Fenêtre de houle | 200-270° (plein sud 180° : ×0,6) | 300-60° |
 | Optimum de marée (surf) | 1 h après la PM | 1 h 30 avant la PM |
 | Période de houle visée | 5,5 à 7,5 s | 4,5 à 6,5 s |
 | Port de marée | Boulogne-sur-Mer | Calais |

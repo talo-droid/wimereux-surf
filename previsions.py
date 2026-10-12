@@ -93,6 +93,11 @@ SPOTS = {
         # "marge_direction" degrés au lieu de tomber d'un coup à zéro.
         "direction_houle": (200.0, 270.0),
         "marge_direction": 15.0,
+        # Houle de plein sud : moins bien orientée, mais ça marche quand elle
+        # est assez grosse. Entre 200° et 180°, le facteur glisse de 1 à 0,6,
+        # puis la marge habituelle l'amène à zéro (vers 165°). La hauteur
+        # fait le reste : une bonne houle sud garde une vraie note.
+        "palier_sud": (180.0, 0.6),
         # Optimum de marée, en heures par rapport à la pleine mer.
         # Positif = après la PM.
         "pic_maree_h": 1.0,
@@ -416,6 +421,18 @@ def facteur_direction(sp, direction_deg) -> float:
     debut, fin = sp["direction_houle"]
     if _dans_secteur(direction_deg, debut, fin):
         return 1.0
+    palier = sp.get("palier_sud")
+    if palier:
+        bord, f_bord = palier
+        if _dans_secteur(direction_deg, bord, debut):
+            # Entre le bord du palier et le début de la fenêtre.
+            frac = _ecart_angle(direction_deg, debut) / max(_ecart_angle(bord, debut), 1e-6)
+            return round(1 - frac * (1 - f_bord), 3)
+        d_bord = _ecart_angle(direction_deg, bord)
+        d_fin = _ecart_angle(direction_deg, fin)
+        if d_bord <= d_fin:
+            return round(_borne(f_bord * (1 - d_bord / sp["marge_direction"])), 3)
+        return round(_borne(1 - d_fin / sp["marge_direction"]), 3)
     d = min(_ecart_angle(direction_deg, debut), _ecart_angle(direction_deg, fin))
     return round(_borne(1 - d / sp["marge_direction"]), 3)
 
@@ -1801,7 +1818,8 @@ def afficher_console(cle_spot, creneaux, resumes, min_note):
     print(f"\n{'=' * 78}")
     print(f"{sp['nom'].upper()} — {len(aff)} créneau(x) de jour "
           f"| bouée {sp['bouee']} | optimum {quand} "
-          f"| houle {sp['direction_houle'][0]:.0f}-{sp['direction_houle'][1]:.0f}°")
+          f"| houle {sp['direction_houle'][0]:.0f}-{sp['direction_houle'][1]:.0f}°"
+          + (f" (sud {sp['palier_sud'][0]:.0f}° x{sp['palier_sud'][1]})" if sp.get('palier_sud') else ""))
     print("=" * 78)
 
     par_date = {r["date"]: r for r in resumes}
