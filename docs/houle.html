@@ -310,6 +310,14 @@ function mesureA(b, quand, tolMin = 40) {
   return best && ecart <= tolMin * 60000 ? best : null;
 }
 const derniere = b => b.serie[b.serie.length - 1];
+// À l'heure présente, la dernière mesure compte si elle a moins de 2 h.
+function mesureVue(b, quand) {
+  if (Math.abs(tau - iMaintenant) < 1) {
+    const m = derniere(b);
+    return Date.now() - utc(m[0]) < 2 * 3600000 ? m : null;
+  }
+  return mesureA(b, quand);
+}
 
 function instantDe(t) {
   if (!modele) return new Date();
@@ -324,7 +332,7 @@ function calculerCorrection(t) {
   correction = [];
   for (const b of bouees) {
     if (b.phare) continue;
-    const m = mesureA(b, quand);
+    const m = mesureVue(b, quand);
     if (!m || m[1] == null) continue;
     const c = champ(b.lat, b.lon, t);
     if (!c || c.h < 0.1) continue;
@@ -499,7 +507,7 @@ function dessinerBouees() {
   marqueurs.clearLayers();
   const quand = instantDe(tau);
   for (const b of bouees) {
-    const m = mesureA(b, quand);
+    const m = mesureVue(b, quand);
     const cls = "bouee" + (b.phare ? " phare" : "") + (m ? "" : " muette") + (b.id === "AMB" ? " ici" : "");
     const txt = m ? fmt(m[1]) + " m" : "·";
     const icone = L.divIcon({ className: "", html: `<span class="${cls}" style="${m ? `background:${css(couleur(m[1]))};color:${m[1] > 1.2 ? "#fff" : "#123239"}` : ""}">${txt}</span>`, iconSize: [0, 0] });
@@ -570,7 +578,7 @@ function majArrivee() {
   if (has) {
     const m = derniere(has), tr = trajet(has, m), t = utc(m[0]);
     const r = rapportAmb(m[3]);
-    if (tr && tr.avant > 3) {
+    if (tr && tr.avant > 10) {
       const arrivee = new Date(t.getTime() + tr.heures * 3600000);
       const passe = arrivee < new Date();
       html += `<p>La houle mesurée à <b>Hastings</b> à ${heureFr(t)} — ${fmt(m[1])} m, ${fmt(m[2])} s, du ${rose(m[3])} —
@@ -673,7 +681,8 @@ async function demarrer() {
   }
   if (modele) {
     const n = Date.now();
-    iMaintenant = modele.temps.reduce((best, t, i) => Math.abs(t - n) < Math.abs(modele.temps[best] - n) ? i : best, 0);
+    // L'heure en cours : la dernière échéance déjà commencée.
+    iMaintenant = Math.max(0, modele.temps.findLastIndex(t => t <= n));
     tau = iMaintenant;
     $("#curseur").max = modele.temps.length - 1;
     const d = modele.temps[0], f = modele.temps[modele.temps.length - 1];
