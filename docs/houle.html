@@ -147,7 +147,7 @@
   bouée d'Ambleteuse <a href="https://www.geodunes.fr/">Géodunes</a>, relevées toutes les 30 minutes en journée.
   Modèle : <a href="https://open-meteo.com/">Open-Meteo</a> (EWAM, DWD).
   Profondeurs : <a href="https://emodnet.ec.europa.eu/en/bathymetry">EMODnet Bathymetry</a>.
-  Fond de carte © OpenStreetMap, CARTO.
+  Fond de carte © Esri, OpenStreetMap.
 </footer>
 
 <script>
@@ -366,12 +366,12 @@ const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
 // ---------------------------------------------------------------- carte
 const carte = L.map("carte", { zoomControl: true, attributionControl: true, minZoom: 7, maxZoom: 12 })
   .fitBounds(innerWidth < 600 ? [[50.5, 0.4], [51.05, 1.85]] : [[50.2, -0.6], [51.2, 2.1]]);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-  attribution: "© OpenStreetMap, © CARTO", subdomains: "abcd", maxZoom: 12,
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+  attribution: "Fond © Esri, HERE, Garmin, © OpenStreetMap", maxZoom: 12,
 }).addTo(carte);
 carte.createPane("etiquettes").style.zIndex = 460;
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-  subdomains: "abcd", maxZoom: 12, pane: "etiquettes",
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 12, pane: "etiquettes",
 }).addTo(carte);
 
 let calque = null;

@@ -43,9 +43,9 @@ const DIRS=[["0","S","165–195°"],["1","SSO","195–225°"],["2","SO","225–2
 const TPS=[["0","mer du vent < 7 s"],["1","houle ≥ 7 s"]];
 let dir="2",tp="0";
 const carte=L.map('carte',{zoomSnap:.25}).setView([50.85,0.75],8.5);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:12}).addTo(carte);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',{attribution:'Fond © Esri, HERE, Garmin, © OpenStreetMap',maxZoom:12}).addTo(carte);
 L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms',{layers:'emodnet:mean_atlas_land',format:'image/png',transparent:true,opacity:.55,attribution:'EMODnet Bathymetry'}).addTo(carte);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:12,opacity:.8}).addTo(carte);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:12,opacity:.8}).addTo(carte);
 const calque=L.layerGroup().addTo(carte);
 function couleur(r){const st=[[.3,[44,93,138]],[.6,[127,168,201]],[1,[233,228,212]],[1.25,[232,163,91]],[1.6,[196,83,43]]];
  if(r<=st[0][0])return`rgb(${st[0][1]})`;for(let i=1;i<st.length;i++){if(r<=st[i][0]){const[a,ca]=st[i-1],[b,cb]=st[i];const t=(r-a)/(b-a);return`rgb(${ca.map((c,j)=>Math.round(c+(cb[j]-c)*t))})`}}return`rgb(${st[4][1]})`}
