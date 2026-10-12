@@ -29,11 +29,18 @@ jobs:
                   return f"ERREUR {e}"
           p = lire(base + "campagne.php?" + base64.b64encode(b"camp=08002").decode())
           print("=== campagne", len(p))
-          for l in sorted(set(re.findall(r'(?:href|src|action|url)\s*[=:]\s*["\']([^"\']+)', p))):
-              print("LIEN", l)
-          for m in re.findall(r'(<table.*?</table>)', p, re.S)[:4]:
-              print("TABLE", re.sub(r"\s+", " ", m)[:3000])
-          for m in re.findall(r'(<script(?![^>]*src).*?</script>)', p, re.S)[:6]:
-              print("SCRIPT", re.sub(r"\s+", " ", m)[:2500])
-          print("TEXTE", re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", p))[:3000])
+          print("ETIQUETTES", sorted(set(re.findall(r"<b>([^<]{1,30})<\\?/b>", p))))
+          # Chaque série : le texte qui précède le premier point daté.
+          for m in re.finditer(r'\[\["(20\d\d-\d\d-\d\d \d\d:\d\d)"', p):
+              i = m.start()
+              print("SERIE", m.group(1), "AVANT", re.sub(r"\s+", " ", p[max(0, i-700):i]))
+              print("DEBUT", re.sub(r"\s+", " ", p[i:i+700]))
+          for k in ("getJSON", "$.ajax", "$.post", "$.get(", "fetch(", ".php?"):
+              for m in list(re.finditer(re.escape(k), p))[:5]:
+                  print("APPEL", k, re.sub(r"\s+", " ", p[max(0, m.start()-150):m.start()+250]))
+          c = lire(base + "campagne.js")
+          print("=== campagne.js", len(c))
+          for k in ("ajax", "post", "get(", ".php", "url"):
+              for m in list(re.finditer(re.escape(k), c))[:6]:
+                  print("JS", k, re.sub(r"\s+", " ", c[max(0, m.start()-150):m.start()+250]))
           PY
