@@ -252,6 +252,28 @@ journal.
 La bouée de référence affichée pour Calais est Goodwin Sands : le bateau-feu
 de Sandettie sous-estime la mer courte.
 
+## La houle en direct
+
+La page `houle.html` (lien en bas de la page principale) montre la houle sur
+toute la Manche Est : le champ du modèle EWAM, recalé sur les bouées, et des
+crêtes animées qui avancent à leur vitesse de groupe et se réfractent sur le
+fond (profondeurs EMODnet). Un curseur parcourt les 24 heures passées et les
+24 suivantes.
+
+Elle estime aussi l'heure à laquelle la houle mesurée à Hastings (et aux
+bouées plus en amont) arrive à Wimereux : distance dans le sens de la houle,
+divisée par la vitesse moyenne sur le trajet. Un graphique compare Ambleteuse
+avec Hastings décalée de ce temps de trajet, pour vérifier le décalage.
+
+Les bouées sont relevées toutes les 30 minutes en journée par
+`houle_carte.py` (tâche `houle.yml`), qui garde les 36 dernières heures dans
+`docs/houle.json` : le service du Cefas ne donne que la dernière mesure et
+n'accepte pas les appels depuis un navigateur. Le modèle, lui, est lu
+directement par la page.
+
+`diffusion.html` garde l'étude des rapports de hauteur entre bouées selon la
+direction de la houle (décembre 2024 → octobre 2026).
+
 ## Le journal
 
 Tous les réglages ci-dessus sont des hypothèses raisonnables, pas des mesures.
