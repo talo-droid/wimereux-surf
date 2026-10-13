@@ -36,6 +36,7 @@
 
   .cadre { position: relative; margin: 0 1rem; border-radius: 10px; overflow: hidden; border: 1px solid var(--trait); }
   #carte { height: 62vh; min-height: 380px; background: #cfdcdc; }
+  #fleches { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 440; }
   #vagues { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 450; }
   .horloge {
     position: absolute; z-index: 500; right: 10px; top: 10px; text-align: right;
@@ -56,6 +57,10 @@
 
   .legende { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0.6rem 1rem 0; font-size: 0.8rem; color: var(--galet); }
   .degrade { width: 200px; height: 9px; border-radius: 5px; }
+  .classes { display: inline-flex; align-items: flex-start; }
+  .classes i { display: block; width: 19px; height: 11px; border: 1px solid #555; border-left-width: 0; }
+  .classes i:first-child { border-left-width: 1px; }
+  .classes b { display: block; font-weight: 400; font-size: 0.68rem; margin-left: -4px; height: 12px; }
 
   .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 0.8rem; margin: 1rem 1rem 0; }
   .boite { background: var(--craie); border-radius: 10px; padding: 0.8rem 1rem; }
@@ -97,6 +102,7 @@
 
 <div class="cadre">
   <div id="carte"></div>
+  <canvas id="fleches"></canvas>
   <canvas id="vagues"></canvas>
   <div class="horloge"><b id="h-heure">—</b><span id="h-etat">chargement…</span></div>
 </div>
@@ -109,7 +115,7 @@
 <div class="reperes"><span id="r-debut">hier</span><span>maintenant</span><span id="r-fin">demain</span></div>
 
 <div class="legende">
-  <span>Hauteur (fond)</span><span>0</span><canvas class="degrade" id="degrade" width="200" height="9"></canvas><span>3 m</span>
+  <span>Hauteur (fond)</span><span id="classes" class="classes"></span>
   <span>· Période (crêtes)</span><span>4</span><canvas class="degrade" id="degrade-t" width="200" height="9"></canvas><span>13 s</span>
   <span>· pastilles = mesures des bouées : hauteur · période (carré : bateau-phare) · animation : 1 s = 10 min</span>
 </div>
@@ -130,7 +136,9 @@
   </section>
   <section class="boite" style="grid-column: 1 / -1">
     <h2>Comment c'est calculé</h2>
-    <p>Le fond coloré est la hauteur de houle du modèle européen EWAM, heure par heure.
+    <p>Le fond est la hauteur de houle du modèle européen EWAM, heure par heure, par classes de
+      25 cm (puis 50 cm et 1 m) : plus c'est sombre, plus c'est gros, et un trait marque chaque
+      changement de classe, comme sur les cartes de l'Ifremer. Les petites flèches donnent le sens de la houle.
       Chaque bouée corrige le modèle autour d'elle : si Hastings mesure 20 % de plus que prévu,
       la zone autour de Hastings monte d'autant, et la correction s'estompe en s'éloignant (à 60 km,
       il n'en reste presque rien). Les bateaux-phares, qui sous-estiment la mer courte, ne servent pas à corriger.</p>
@@ -361,17 +369,16 @@ function facteur(lat, lon, cle = "lr") {
 }
 
 // ---------------------------------------------------------------- couleurs
-const PALETTE = [[0, [232, 240, 240]], [0.5, [190, 217, 222]], [1, [120, 178, 193]], [1.5, [52, 128, 155]], [2, [28, 84, 118]], [3, [44, 38, 92]]];
-function couleur(h) {
-  if (h <= 0) return PALETTE[0][1];
-  for (let k = 1; k < PALETTE.length; k++) {
-    if (h <= PALETTE[k][0]) {
-      const [a, ca] = PALETTE[k - 1], [b, cb] = PALETTE[k], f = (h - a) / (b - a);
-      return ca.map((v, i) => Math.round(v + (cb[i] - v) * f));
-    }
-  }
-  return PALETTE[PALETTE.length - 1][1];
+// Classes de hauteur, comme les cartes de houle de l'Ifremer, en gris :
+// plus c'est sombre, plus c'est gros. Un trait sépare chaque classe.
+const CLASSES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
+const GRIS = CLASSES.map((_, i) => Math.round(246 - i * (206 / (CLASSES.length - 1))));
+function classe(h) {
+  let i = 0;
+  while (i + 1 < CLASSES.length && h >= CLASSES[i + 1]) i++;
+  return i;
 }
+function couleur(h) { const g = GRIS[classe(Math.max(0, h))]; return [g, g, g + 4]; }
 const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
 // Couleur des crêtes selon la période : blanc pour la mer du vent,
 // jaune puis orange et corail quand la houle s'allonge.
@@ -387,8 +394,9 @@ function couleurT(T) {
   return PALETTE_T[PALETTE_T.length - 1][1];
 }
 (function () {
-  const g = $("#degrade").getContext("2d");
-  for (let x = 0; x < 200; x++) { g.fillStyle = css(couleur(x / 200 * 3)); g.fillRect(x, 0, 1, 9); }
+  $("#classes").innerHTML = CLASSES.map((c, i) =>
+    `<span><i style="background:rgb(${GRIS[i]},${GRIS[i]},${GRIS[i] + 4})"></i><b>${i % 2 === 0 || i > 8 ? String(c).replace(".", ",") : ""}</b></span>`).join("") +
+    "<span style='margin-left:6px'>m</span>";
   const gt = $("#degrade-t").getContext("2d");
   gt.fillStyle = "#3a7f99"; gt.fillRect(0, 0, 200, 9);
   for (let x = 0; x < 200; x++) { gt.fillStyle = css(couleurT(4 + x / 200 * 9)); gt.fillRect(x, 1, 1, 7); }
@@ -409,30 +417,73 @@ let calque = null;
 const mercY = lat => Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2));
 function dessinerChamp(t) {
   if (!modele) return;
-  const W = 264, Y0 = mercY(ZONE.s), Y1 = mercY(ZONE.n);
+  const W = 800, Y0 = mercY(ZONE.s), Y1 = mercY(ZONE.n);
   const Hpx = Math.round(W * (Y1 - Y0) / rad(ZONE.e - ZONE.o));
   const cv = document.createElement("canvas"); cv.width = W; cv.height = Hpx;
   const g = cv.getContext("2d"), img = g.createImageData(W, Hpx);
-  for (let py = 0; py < Hpx; py++) {
+  const cl = new Int8Array(W * Hpx).fill(-1);
+  const pos = py => {
     const y = Y1 - (py + 0.5) / Hpx * (Y1 - Y0);
-    const lat = (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI;
+    return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI;
+  };
+  const lonDe = px => ZONE.o + (px + 0.5) / W * (ZONE.e - ZONE.o);
+  for (let py = 0; py < Hpx; py++) {
+    const lat = pos(py);
     for (let px = 0; px < W; px++) {
-      const lon = ZONE.o + (px + 0.5) / W * (ZONE.e - ZONE.o);
-      const p = profondeur(lat, lon), k = (py * W + px) * 4;
-      if (p < 0.5) { img.data[k + 3] = 0; continue; }
+      const lon = lonDe(px);
+      if (profondeur(lat, lon) < 0.5) continue;
       const c = champ(lat, lon, t);
-      if (!c) { img.data[k + 3] = 0; continue; }
-      const col = couleur(c.h * facteur(lat, lon));
-      img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2];
-      img.data[k + 3] = Math.round(215 * borne((p - 0.5) / 6, 0, 1));
+      if (c) cl[py * W + px] = classe(c.h * facteur(lat, lon));
     }
+  }
+  for (let i = 0; i < W * Hpx; i++) {
+    const k = i * 4, c = cl[i];
+    if (c < 0) continue;
+    const x = i % W;
+    // Trait de séparation entre deux classes voisines.
+    const droite = x + 1 < W ? cl[i + 1] : -1, bas = i + W < W * Hpx ? cl[i + W] : -1;
+    const bord = (droite >= 0 && droite !== c) || (bas >= 0 && bas !== c);
+    const v = bord ? 70 : GRIS[c];
+    img.data[k] = v; img.data[k + 1] = v; img.data[k + 2] = bord ? v : v + 4;
+    img.data[k + 3] = 235;
   }
   g.putImageData(img, 0, 0);
   const url = cv.toDataURL();
   const bornes = [[ZONE.s, ZONE.o], [ZONE.n, ZONE.e]];
   if (calque) calque.setUrl(url);
-  else calque = L.imageOverlay(url, bornes, { opacity: 0.85, className: "champ" }).addTo(carte);
+  else calque = L.imageOverlay(url, bornes, { opacity: 0.92, className: "champ" }).addTo(carte);
+  dessinerFleches();
 }
+
+// Flèches de direction à l'écran, sur une grille régulière (redessinées
+// quand on déplace la carte), comme sur les cartes de l'Ifremer.
+const fleches = $("#fleches"), fctx = fleches.getContext("2d");
+function dessinerFleches() {
+  const r = fleches.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  fleches.width = Math.round(r.width * dpr); fleches.height = Math.round(r.height * dpr);
+  fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fctx.clearRect(0, 0, r.width, r.height);
+  if (!modele) return;
+  const pas = 46;
+  fctx.lineCap = "round"; fctx.lineJoin = "round"; fctx.lineWidth = 1.3;
+  for (let y = pas / 2; y < r.height; y += pas) {
+    for (let x = pas / 2 + ((y / pas | 0) % 2) * pas / 2; x < r.width; x += pas) {
+      const ll = carte.containerPointToLatLng([x, y]);
+      if (profondeur(ll.lat, ll.lng) < 3) continue;
+      const c = champ(ll.lat, ll.lng, tau);
+      if (!c) continue;
+      const h = c.h * facteur(ll.lat, ll.lng);
+      const sx = c.ux, sy = -c.uy, L = 8;
+      fctx.strokeStyle = GRIS[classe(h)] < 130 ? "rgba(255,255,255,.75)" : "rgba(20,30,35,.55)";
+      const x1 = x + sx * L, y1 = y + sy * L;
+      fctx.beginPath(); fctx.moveTo(x - sx * L, y - sy * L); fctx.lineTo(x1, y1);
+      fctx.moveTo(x1 - sx * 4.5 + sy * 3.2, y1 - sy * 4.5 - sx * 3.2); fctx.lineTo(x1, y1);
+      fctx.lineTo(x1 - sx * 4.5 - sy * 3.2, y1 - sy * 4.5 + sx * 3.2);
+      fctx.stroke();
+    }
+  }
+}
+carte.on("moveend zoomend resize", dessinerFleches);
 
 // ---------------------------------------------------------------- cretes
 const toile = $("#vagues"), ctx = toile.getContext("2d");
@@ -508,6 +559,15 @@ function animer(now) {
     const L2 = (2.5 + 4 * (p.h || 0)) * Math.min(echelle, 2.5);
     const fondu = Math.min(1, p.age / 0.6, (p.vie - p.age) / 0.8);
     const ct = couleurT(p.T || 5);
+    const alpha = fondu * borne(0.45 + (p.h || 0) / 2, 0, 0.95);
+    // Liseré sombre : les crêtes restent lisibles sur les gris clairs.
+    ctx.strokeStyle = `rgba(20,28,32,${(alpha * 0.55).toFixed(3)})`;
+    ctx.lineWidth = 2.4 + (p.h || 0) * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(pt.x - sy * L2 - sx * L2 * 0.3, pt.y + sx * L2 - sy * L2 * 0.3);
+    ctx.quadraticCurveTo(pt.x + sx * L2 * 0.25, pt.y + sy * L2 * 0.25,
+                         pt.x + sy * L2 - sx * L2 * 0.3, pt.y - sx * L2 - sy * L2 * 0.3);
+    ctx.stroke();
     ctx.strokeStyle = `rgba(${ct[0]},${ct[1]},${ct[2]},${(fondu * borne(0.45 + (p.h || 0) / 2, 0, 0.95)).toFixed(3)})`;
     ctx.lineWidth = 0.9 + (p.h || 0) * 0.5;
     ctx.beginPath();
@@ -535,7 +595,7 @@ function dessinerBouees() {
     const m = mesureVue(b, quand);
     const cls = "bouee" + (b.phare ? " phare" : "") + (m ? "" : " muette") + (b.id === "AMB" ? " ici" : "");
     const txt = m ? fmt(m[1]) + " m" + (m[2] ? " · " + fmt(m[2], 0) + " s" : "") : "·";
-    const icone = L.divIcon({ className: "", html: `<span class="${cls}" style="${m ? `background:${css(couleur(m[1]))};color:${m[1] > 1.2 ? "#fff" : "#123239"}` : ""}">${txt}</span>`, iconSize: [0, 0] });
+    const icone = L.divIcon({ className: "", html: `<span class="${cls}" style="${m ? `background:${css(couleur(m[1]))};color:${couleur(m[1])[0] < 150 ? "#fff" : "#123239"}` : ""}">${txt}</span>`, iconSize: [0, 0] });
     L.marker([b.lat, b.lon], { icon: icone, keyboard: false }).bindPopup(() => fiche(b)).addTo(marqueurs);
   }
   L.marker(WIMEREUX, { icon: L.divIcon({ className: "", html: '<span class="bouee ici lieu">Wimereux</span>', iconSize: [0, 0] }), interactive: false }).addTo(marqueurs);
