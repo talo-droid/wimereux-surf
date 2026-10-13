@@ -8,9 +8,10 @@ jour, interroge le service par tranches de trois jours pour chaque port, et
 range pleines mers, basses mers et hauteurs d'eau dans marees_cache.json.
 previsions.py lit ce fichier en premier.
 
-Si api-maree.fr est en panne, cette tâche échoue seule (croix rouge sur
-« Marées »), sans toucher aux prévisions : la copie couvre encore plusieurs
-jours.
+Elle recale aussi les constantes harmoniques (maree_harmonique.py) sur
+toutes les pleines et basses mers connues : si api-maree.fr est en panne,
+les prévisions calculent la marée elles-mêmes, sans réseau. Une panne du
+service n'arrête donc plus rien, et cette tâche reste verte.
 
 Usage :
     python marees.py              # met à jour marees_cache.json
@@ -59,8 +60,16 @@ def main() -> int:
             essais += 1
             t = u
         print(f"{site} : {n_ext} pleines/basses mers, {n_h} hauteurs d'eau", file=sys.stderr)
-    # Échec seulement si rien n'a pu être lu : la tâche se voit alors en rouge.
-    return 1 if essais and echecs == essais else 0
+    if essais and echecs == essais:
+        print("api-maree.fr injoignable : les prévisions calculeront la marée "
+              "(constantes harmoniques).", file=sys.stderr)
+    # Plus on accumule de pleines et basses mers, plus le calcul est juste.
+    import maree_harmonique
+    try:
+        maree_harmonique.main_ajuster()
+    except Exception as e:
+        print(f"constantes harmoniques non recalées : {e}", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

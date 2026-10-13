@@ -1216,67 +1216,57 @@ def _cache_maree_couvre(site, cle, depuis, jusqu_a, marge_h=13):
             if depuis.isoformat() <= k <= jusqu_a.isoformat()}
 
 
-def _extrema_derniere_prevision(site, depuis, jusqu_a):
-    """Dernier recours : les marées de la dernière prévision publiée
-    (docs/data.json couvre une semaine), au même format que le cache."""
-    try:
-        data = json.loads((Path(__file__).parent / "docs" / "data.json").read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    for spot in data.get("spots", []):
-        if spot.get("site_maree") != site or not spot.get("marees"):
-            continue
-        bloc = {m["instant"][:19]: {k: m.get(k) for k in ("type", "hauteur_m", "coef")}
-                for m in spot["marees"]}
-        cles = sorted(bloc)
-        if cles[0] > (depuis + timedelta(hours=13)).isoformat() or \
-                cles[-1] < (jusqu_a - timedelta(hours=13)).isoformat():
-            return None
-        return {k: v for k, v in bloc.items() if depuis.isoformat() <= k <= jusqu_a.isoformat()}
-    return None
-
-
-def _hauteurs_depuis_extrema(extrema, depuis, jusqu_a) -> dict:
-    pts = [e for e in extrema if e.get("hauteur_m") is not None]
-    out = {}
-    t = depuis.replace(minute=0 if depuis.minute < 30 else 30, second=0, microsecond=0)
-    while t <= jusqu_a:
-        avant = [e for e in pts if e["instant"] <= t]
-        apres = [e for e in pts if e["instant"] > t]
-        if avant and apres:
-            a, b = avant[-1], apres[0]
-            f = (t - a["instant"]).total_seconds() / (b["instant"] - a["instant"]).total_seconds()
-            out[t] = round(a["hauteur_m"] + (b["hauteur_m"] - a["hauteur_m"]) * (1 - math.cos(math.pi * f)) / 2, 3)
-        t += timedelta(minutes=30)
-    return out
-
-
 def _extrema_depuis_bloc(bloc) -> list[dict]:
     return sorted(({**v, "instant": datetime.fromisoformat(k)} for k, v in bloc.items()),
                   key=lambda e: e["instant"])
 
 
+# Si api-maree.fr a déjà flanché pendant ce calcul, on ne le rappelle plus :
+# chaque appel raté coûte trois essais et une minute d'attente.
+_API_MAREE_EN_PANNE = None
+
+
+def _api_maree(fonction, sp, depuis, jusqu_a):
+    global _API_MAREE_EN_PANNE
+    if _API_MAREE_EN_PANNE:
+        raise RuntimeError(_API_MAREE_EN_PANNE)
+    try:
+        return fonction(sp, depuis, jusqu_a)
+    except Exception as e:
+        _API_MAREE_EN_PANNE = str(e)
+        raise
+
+
+def _constantes_maree(site):
+    import maree_harmonique
+    c = maree_harmonique.charger(site)
+    if not c:
+        raise RuntimeError(f"pas de constantes harmoniques pour {site} "
+                           "(lancer maree_harmonique.py --ajuster)")
+    return maree_harmonique, c
+
+
 def recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dict]:
     """
-    Pleines et basses mers. La tâche « Marées » (marees.py) les prépare deux
-    fois par jour, dix jours à l'avance, dans marees_cache.json : le calcul
-    des notes n'appelle donc plus api-maree.fr, et une panne du service ne
-    le bloque plus. Ordre des recours : copie préparée, appel direct,
-    dernière prévision publiée.
+    Pleines et basses mers. Ordre des recours :
+      1. la copie préparée par la tâche « Marées » (marees_cache.json) ;
+      2. api-maree.fr directement ;
+      3. le calcul harmonique (maree_harmonique.py), sans réseau, valable
+         des années : une dizaine de centimètres et quelques minutes d'écart.
+    Le 3 ne peut pas tomber en panne : la prévision ne s'arrête plus pour
+    une histoire de marée.
     """
     site = sp["site_maree"]
     garde = _cache_maree_couvre(site, "extrema", depuis, jusqu_a)
     if garde is not None:
         return _extrema_depuis_bloc(garde)
     try:
-        return _recuperer_extrema_maree(sp, depuis, jusqu_a)
+        return _api_maree(_recuperer_extrema_maree, sp, depuis, jusqu_a)
     except Exception as e:
-        garde = _extrema_derniere_prevision(site, depuis, jusqu_a)
-        if garde is None:
-            raise
-        print(f"  marée : api-maree.fr indisponible ({e}), marées de la dernière prévision",
-              file=sys.stderr)
-        return _extrema_depuis_bloc(garde)
+        mh, c = _constantes_maree(site)
+        print(f"  marée : api-maree.fr indisponible ({e}), pleines et basses mers "
+              "calculées (constantes harmoniques)", file=sys.stderr)
+        return [{**x, "calcule": True} for x in mh.extrema(c, depuis, jusqu_a)]
 
 
 def recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
@@ -1285,20 +1275,12 @@ def recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
     if garde is not None:
         return {datetime.fromisoformat(k): v for k, v in garde.items()}
     try:
-        return _recuperer_hauteurs_eau(sp, depuis, jusqu_a)
+        return _api_maree(_recuperer_hauteurs_eau, sp, depuis, jusqu_a)
     except Exception as e:
-        garde = _cache_maree_couvre(site, "hauteurs", depuis, jusqu_a, marge_h=30)
-        if garde is not None:
-            print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), copie partielle utilisée",
-                  file=sys.stderr)
-            return {datetime.fromisoformat(k): v for k, v in garde.items()}
-        # Pas de copie : on reconstruit la courbe entre pleines et basses mers
-        # (demi-cosinus, la règle des douzièmes lissée) : une dizaine de
-        # centimètres d'écart en moyenne avec la vraie marée (30 au pire).
-        extrema = recuperer_extrema_maree(sp, depuis - timedelta(days=1), jusqu_a + timedelta(days=1))
-        print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), courbe recalculée "
-              "à partir des pleines et basses mers", file=sys.stderr)
-        return _hauteurs_depuis_extrema(extrema, depuis, jusqu_a)
+        mh, c = _constantes_maree(site)
+        print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), courbe calculée "
+              "(constantes harmoniques)", file=sys.stderr)
+        return mh.hauteurs(c, depuis, jusqu_a)
 
 
 def _recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dict]:

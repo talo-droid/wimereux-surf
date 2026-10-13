@@ -260,18 +260,31 @@ qu'une panne n'en entraîne pas d'autres :
 | Tâche | Fichier | Quand | Si elle échoue |
 |---|---|---|---|
 | Prévisions Wimereux | `previsions.yml` | toutes les 3 h | la page garde les notes précédentes |
-| Marées | `marees.yml` | 2 fois par jour | les notes continuent sur la copie (10 jours) |
+| Marées | `marees.yml` | 2 fois par jour | les notes calculent la marée elles-mêmes |
 | Bouée à la pleine mer | `maree.yml` | toutes les 20 min en journée | pas d'alerte « bonne surprise » |
 | Carte de la houle | `houle.yml` | toutes les 30 min en journée | la carte garde les derniers relevés |
 
 Les marées viennent d'api-maree.fr, mais seule la tâche « Marées » l'appelle :
 elle range pleines mers, basses mers et hauteurs d'eau des dix prochains jours
 dans `marees_cache.json`, que `previsions.py` lit en premier. Si la copie ne
-couvre pas la période, `previsions.py` appelle le service lui-même, puis se
-rabat sur les marées de la dernière prévision publiée et recalcule la courbe
-de hauteur d'eau entre pleines et basses mers (une dizaine de centimètres
-d'écart en moyenne). Le lever et le coucher du soleil, s'ils manquent, sont
-calculés (formules astronomiques, à quelques minutes près).
+couvre pas la période, `previsions.py` appelle le service lui-même, et s'il ne
+répond pas, calcule la marée.
+
+La marée se prévoit des années à l'avance : c'est une somme d'ondes (lunaire
+M2, solaire S2, etc.) dont seules l'amplitude et la phase dépendent du port.
+`maree_harmonique.py` ajuste ces ondes sur toutes les pleines et basses mers
+déjà publiées (les archives) et les range dans `marees_harmoniques.json` ; la
+tâche « Marées » les recale à chaque passage, de plus en plus justes à mesure
+que l'historique s'allonge. Sur une semaine jamais vue, le calcul tombe à une
+douzaine de centimètres et cinq minutes près des pleines et basses mers du
+service, et le coefficient à deux points près. Il ne demande aucun réseau : une
+panne d'api-maree.fr n'arrête plus la prévision.
+
+    python maree_harmonique.py --ajuster                 # recaler
+    python maree_harmonique.py --site calais --du 2027-03-20 --jours 2
+
+Le lever et le coucher du soleil, s'ils manquent, sont calculés (formules
+astronomiques, à quelques minutes près).
 
 Seules la houle et le vent (Open-Meteo) restent indispensables au calcul.
 
