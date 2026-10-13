@@ -1,8 +1,9 @@
 name: Marées
 
 # Prépare les marées des dix prochains jours (api-maree.fr) dans
-# marees_cache.json. Séparé du calcul des notes : si le service de marées
-# tombe, seule cette tâche échoue, et les prévisions continuent sur la copie.
+# marees_cache.json et recale les constantes harmoniques
+# (marees_harmoniques.json). Si le service de marées tombe, les prévisions
+# calculent la marée elles-mêmes.
 
 on:
   schedule:
@@ -40,6 +41,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add marees_harmoniques.json
           if [ -f marees_cache.json ]; then git add marees_cache.json; fi
           git diff --staged --quiet && exit 0
           git commit -m "Marées $(date +'%Y-%m-%d %H:%M')"
