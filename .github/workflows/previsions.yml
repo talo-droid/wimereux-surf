@@ -79,7 +79,9 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data.json archives/ etat_alertes.json observations/ marees_cache.json
+          git add docs/data.json archives/ etat_alertes.json observations/
+          # La copie des marées n'existe qu'après un appel réussi à api-maree.fr.
+          if [ -f marees_cache.json ]; then git add marees_cache.json; fi
           git diff --staged --quiet || git commit -m "Prévisions $(date -u +'%Y-%m-%d %H:%M UTC')"
           # Le contrôle à la pleine mer (maree.yml) peut avoir publié entre-temps.
           for essai in 1 2 3; do
