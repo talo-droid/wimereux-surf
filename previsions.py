@@ -1182,11 +1182,48 @@ def _cache_maree_couvre(site, cle, depuis, jusqu_a, marge_h=13):
             if depuis.isoformat() <= k <= jusqu_a.isoformat()}
 
 
+def _extrema_derniere_prevision(site, depuis, jusqu_a):
+    """Dernier recours : les marées de la dernière prévision publiée
+    (docs/data.json couvre une semaine), au même format que le cache."""
+    try:
+        data = json.loads((Path(__file__).parent / "docs" / "data.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    for spot in data.get("spots", []):
+        if spot.get("site_maree") != site or not spot.get("marees"):
+            continue
+        bloc = {m["instant"][:19]: {k: m.get(k) for k in ("type", "hauteur_m", "coef")}
+                for m in spot["marees"]}
+        cles = sorted(bloc)
+        if cles[0] > (depuis + timedelta(hours=13)).isoformat() or \
+                cles[-1] < (jusqu_a - timedelta(hours=13)).isoformat():
+            return None
+        return {k: v for k, v in bloc.items() if depuis.isoformat() <= k <= jusqu_a.isoformat()}
+    return None
+
+
+def _hauteurs_depuis_extrema(extrema, depuis, jusqu_a) -> dict:
+    pts = [e for e in extrema if e.get("hauteur_m") is not None]
+    out = {}
+    t = depuis.replace(minute=0 if depuis.minute < 30 else 30, second=0, microsecond=0)
+    while t <= jusqu_a:
+        avant = [e for e in pts if e["instant"] <= t]
+        apres = [e for e in pts if e["instant"] > t]
+        if avant and apres:
+            a, b = avant[-1], apres[0]
+            f = (t - a["instant"]).total_seconds() / (b["instant"] - a["instant"]).total_seconds()
+            out[t] = round(a["hauteur_m"] + (b["hauteur_m"] - a["hauteur_m"]) * (1 - math.cos(math.pi * f)) / 2, 3)
+        t += timedelta(minutes=30)
+    return out
+
+
 def recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dict]:
     try:
         extrema = _recuperer_extrema_maree(sp, depuis, jusqu_a)
     except Exception as e:
         garde = _cache_maree_couvre(sp["site_maree"], "extrema", depuis, jusqu_a)
+        if garde is None:
+            garde = _extrema_derniere_prevision(sp["site_maree"], depuis, jusqu_a)
         if garde is None:
             raise
         print(f"  marée : api-maree.fr indisponible ({e}), copie gardée utilisée",
@@ -1204,11 +1241,17 @@ def recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
         hauteurs = _recuperer_hauteurs_eau(sp, depuis, jusqu_a)
     except Exception as e:
         garde = _cache_maree_couvre(sp["site_maree"], "hauteurs", depuis, jusqu_a, marge_h=30)
-        if garde is None:
-            raise
-        print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), copie gardée utilisée",
-              file=sys.stderr)
-        return {datetime.fromisoformat(k): v for k, v in garde.items()}
+        if garde is not None:
+            print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), copie gardée utilisée",
+                  file=sys.stderr)
+            return {datetime.fromisoformat(k): v for k, v in garde.items()}
+        # Pas de copie : on reconstruit la courbe entre pleines et basses mers
+        # (demi-cosinus, la règle des douzièmes lissée) : une dizaine de
+        # centimètres d'écart en moyenne avec la vraie marée (30 au pire).
+        extrema = recuperer_extrema_maree(sp, depuis - timedelta(days=1), jusqu_a + timedelta(days=1))
+        print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), courbe recalculée "
+              "à partir des pleines et basses mers", file=sys.stderr)
+        return _hauteurs_depuis_extrema(extrema, depuis, jusqu_a)
     _cache_maree_ecrire(sp["site_maree"], "hauteurs",
                         {k.isoformat(): v for k, v in hauteurs.items()})
     return hauteurs
