@@ -79,7 +79,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data.json archives/ etat_alertes.json observations/
+          git add docs/data.json archives/ etat_alertes.json observations/ marees_cache.json
           git diff --staged --quiet || git commit -m "Prévisions $(date -u +'%Y-%m-%d %H:%M UTC')"
           # Le contrôle à la pleine mer (maree.yml) peut avoir publié entre-temps.
           for essai in 1 2 3; do
