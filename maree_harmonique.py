@@ -54,9 +54,11 @@ COMPOSEES = {
 # Ondes ajustées sur un mois de données ; les autres sont trop proches d'une
 # onde principale pour être séparées sur un mois et en sont déduites (rapport
 # d'amplitude du potentiel de marée, même phase).
-# (MSF, M3, L2, MU2 et M8, essayées, dégradaient la prévision à une semaine.)
 AJUSTEES = ["M2", "S2", "N2", "K1", "O1", "Q1", "MK3", "M4", "MS4", "MN4",
             "M6", "2MS6", "2MN6"]
+# Ondes en plus quand l'historique s'allonge : à chaque recalage, on garde le
+# jeu qui prévoit le mieux la dernière semaine sans l'avoir vue.
+JEUX = [AJUSTEES, AJUSTEES + ["MU2", "L2"], AJUSTEES + ["MU2", "L2", "MSF", "M3", "M8"]]
 DEDUITES = {"K2": ("S2", 0.272), "P1": ("K1", 0.331), "NU2": ("N2", 0.194)}
 
 
@@ -279,6 +281,31 @@ def _extrema_archives(cle: str) -> tuple[str, dict]:
     return site, vus
 
 
+def _ecarts(c: dict, pts: list) -> tuple[float, float]:
+    """Écart moyen (cm, min) entre le calcul et des pleines/basses mers."""
+    calc = extrema(c, pts[0][0] - timedelta(hours=3), pts[-1][0] + timedelta(hours=3))
+    eh, et = [], []
+    for t, h in pts:
+        p = min(calc, key=lambda e: abs(e["instant"] - t))
+        eh.append(abs(p["hauteur_m"] - h))
+        et.append(abs((p["instant"] - t).total_seconds()) / 60)
+    return 100 * sum(eh) / len(eh), sum(et) / len(et)
+
+
+def _meilleur_jeu(pts: list) -> list:
+    """Le jeu d'ondes qui prévoit le mieux la dernière semaine, ajusté sur le
+    reste (10 min d'erreur comptent comme 10 cm)."""
+    coupe = pts[-1][0] - timedelta(days=7)
+    appris = [p for p in pts if p[0] < coupe]
+    test = [p for p in pts if p[0] >= coupe]
+    if len(appris) < 50 or len(test) < 8:
+        return AJUSTEES
+    def cout(noms):
+        h, m = _ecarts(ajuster(appris, noms), test)
+        return h + m
+    return min(JEUX, key=cout)
+
+
 def recalculer(cles=("wimereux", "calais")) -> dict:
     res = {}
     for cle in cles:
@@ -287,7 +314,7 @@ def recalculer(cles=("wimereux", "calais")) -> dict:
             print(f"{cle} : trop peu de pleines/basses mers ({len(vus)})", file=sys.stderr)
             continue
         pts = [(datetime.fromisoformat(k), v["hauteur_m"]) for k, v in sorted(vus.items())]
-        c = ajuster(pts)
+        c = ajuster(pts, _meilleur_jeu(pts))
         # Coefficient en fonction du marnage local de la pleine mer suivante :
         # droite des moindres carrés sur les coefficients publiés.
         ext = [{**v, "instant": k} for k, v in sorted(vus.items())]
@@ -302,14 +329,8 @@ def recalculer(cles=("wimereux", "calais")) -> dict:
             c["coef_marnage"] = [round(a, 3), round(b, 2)]
         c["calees_sur"] = f"{pts[0][0]:%Y-%m-%d} → {pts[-1][0]:%Y-%m-%d}, {len(pts)} pleines/basses mers"
         # Écart sur les données d'ajustement, pour mémoire.
-        calc = extrema(c, pts[0][0] - timedelta(hours=3), pts[-1][0] + timedelta(hours=3))
-        eh, et = [], []
-        for t, h in pts:
-            p = min(calc, key=lambda e: abs(e["instant"] - t))
-            eh.append(abs(p["hauteur_m"] - h))
-            et.append(abs((p["instant"] - t).total_seconds()) / 60)
-        c["ecart_moyen"] = {"hauteur_cm": round(100 * sum(eh) / len(eh), 1),
-                            "heure_min": round(sum(et) / len(et), 1)}
+        h, m = _ecarts(c, pts)
+        c["ecart_moyen"] = {"hauteur_cm": round(h, 1), "heure_min": round(m, 1)}
         res[site] = c
         print(f"{cle} ({site}) : {c['calees_sur']} — écart moyen "
               f"{c['ecart_moyen']['hauteur_cm']} cm, {c['ecart_moyen']['heure_min']} min",
