@@ -136,9 +136,10 @@
   </section>
   <section class="boite" style="grid-column: 1 / -1">
     <h2>Comment c'est calculé</h2>
-    <p>Le fond est la hauteur de houle du modèle européen EWAM, heure par heure, par classes de
-      25 cm (puis 50 cm et 1 m) : plus c'est sombre, plus c'est gros, et un trait marque chaque
-      changement de classe, comme sur les cartes de l'Ifremer. Les petites flèches donnent le sens de la houle.
+    <p>Le fond est la hauteur de houle du modèle européen EWAM, heure par heure, avec les classes et
+      les couleurs des cartes de houle de l'Ifremer : beige pour le plat, violets jusqu'à 1,25 m, bleus
+      jusqu'à 2,5 m, puis verts et jaunes. Un trait fin marque chaque changement de classe, et les
+      petites flèches donnent le sens de la houle.
       Chaque bouée corrige le modèle autour d'elle : si Hastings mesure 20 % de plus que prévu,
       la zone autour de Hastings monte d'autant, et la correction s'estompe en s'éloignant (à 60 km,
       il n'en reste presque rien). Les bateaux-phares, qui sous-estiment la mer courte, ne servent pas à corriger.</p>
@@ -369,16 +370,23 @@ function facteur(lat, lon, cle = "lr") {
 }
 
 // ---------------------------------------------------------------- couleurs
-// Classes de hauteur, comme les cartes de houle de l'Ifremer, en gris :
-// plus c'est sombre, plus c'est gros. Un trait sépare chaque classe.
-const CLASSES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
-const GRIS = CLASSES.map((_, i) => Math.round(246 - i * (206 / (CLASSES.length - 1))));
+// Classes et couleurs des cartes de houle de l'Ifremer (MARC, WaveWatch III) :
+// beige pour le plat, violets jusqu'à 1,25 m, bleus jusqu'à 2,5 m, puis
+// verts, jaunes, rouges… Un trait fin sépare chaque classe.
+const CLASSES = [0, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75,
+                 4, 4.5, 5, 5.5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+const TEINTES = ["#efd9c7", "#d7bfa7", "#c6af95", "#c5b0fb", "#8b62d4", "#5b21b7", "#91fefb", "#51bfff",
+  "#2e8cfa", "#1840db", "#1200c5", "#e2ff9d", "#96ff6e", "#3bfd41", "#2fe195", "#2dd080", "#2ac23a",
+  "#feffa8", "#ffff45", "#fabd2e", "#ff9028", "#fecdd0", "#ff6a6b", "#fd1011", "#b78055", "#85400d",
+  "#bf0c0b", "#710201", "#fa00fb", "#9d044c"]
+  .map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
+const sombre = c => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2] < 140;
 function classe(h) {
   let i = 0;
   while (i + 1 < CLASSES.length && h >= CLASSES[i + 1]) i++;
   return i;
 }
-function couleur(h) { const g = GRIS[classe(Math.max(0, h))]; return [g, g, g + 4]; }
+function couleur(h) { return TEINTES[classe(Math.max(0, h))]; }
 const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
 // Couleur des crêtes selon la période : blanc pour la mer du vent,
 // jaune puis orange et corail quand la houle s'allonge.
@@ -394,8 +402,9 @@ function couleurT(T) {
   return PALETTE_T[PALETTE_T.length - 1][1];
 }
 (function () {
-  $("#classes").innerHTML = CLASSES.map((c, i) =>
-    `<span><i style="background:rgb(${GRIS[i]},${GRIS[i]},${GRIS[i] + 4})"></i><b>${i % 2 === 0 || i > 8 ? String(c).replace(".", ",") : ""}</b></span>`).join("") +
+  // Légende jusqu'à 5 m : au-delà, c'est la tempête, rare en Manche Est.
+  $("#classes").innerHTML = CLASSES.slice(0, 20).map((c, i) =>
+    `<span><i style="background:${css(TEINTES[i])}"></i><b>${[0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5].includes(c) ? String(c).replace(".", ",") : ""}</b></span>`).join("") +
     "<span style='margin-left:6px'>m</span>";
   const gt = $("#degrade-t").getContext("2d");
   gt.fillStyle = "#3a7f99"; gt.fillRect(0, 0, 200, 9);
@@ -443,9 +452,9 @@ function dessinerChamp(t) {
     // Trait de séparation entre deux classes voisines.
     const droite = x + 1 < W ? cl[i + 1] : -1, bas = i + W < W * Hpx ? cl[i + W] : -1;
     const bord = (droite >= 0 && droite !== c) || (bas >= 0 && bas !== c);
-    const v = bord ? 70 : GRIS[c];
-    img.data[k] = v; img.data[k + 1] = v; img.data[k + 2] = bord ? v : v + 4;
-    img.data[k + 3] = 235;
+    const col = bord ? [60, 50, 80] : TEINTES[c];
+    img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2];
+    img.data[k + 3] = bord ? 150 : 225;
   }
   g.putImageData(img, 0, 0);
   const url = cv.toDataURL();
@@ -474,7 +483,7 @@ function dessinerFleches() {
       if (!c) continue;
       const h = c.h * facteur(ll.lat, ll.lng);
       const sx = c.ux, sy = -c.uy, L = 8;
-      fctx.strokeStyle = GRIS[classe(h)] < 130 ? "rgba(255,255,255,.75)" : "rgba(20,30,35,.55)";
+      fctx.strokeStyle = sombre(TEINTES[classe(h)]) ? "rgba(255,255,255,.8)" : "rgba(10,10,20,.65)";
       const x1 = x + sx * L, y1 = y + sy * L;
       fctx.beginPath(); fctx.moveTo(x - sx * L, y - sy * L); fctx.lineTo(x1, y1);
       fctx.moveTo(x1 - sx * 4.5 + sy * 3.2, y1 - sy * 4.5 - sx * 3.2); fctx.lineTo(x1, y1);
@@ -595,7 +604,7 @@ function dessinerBouees() {
     const m = mesureVue(b, quand);
     const cls = "bouee" + (b.phare ? " phare" : "") + (m ? "" : " muette") + (b.id === "AMB" ? " ici" : "");
     const txt = m ? fmt(m[1]) + " m" + (m[2] ? " · " + fmt(m[2], 0) + " s" : "") : "·";
-    const icone = L.divIcon({ className: "", html: `<span class="${cls}" style="${m ? `background:${css(couleur(m[1]))};color:${couleur(m[1])[0] < 150 ? "#fff" : "#123239"}` : ""}">${txt}</span>`, iconSize: [0, 0] });
+    const icone = L.divIcon({ className: "", html: `<span class="${cls}" style="${m ? `background:${css(couleur(m[1]))};color:${sombre(couleur(m[1])) ? "#fff" : "#123239"}` : ""}">${txt}</span>`, iconSize: [0, 0] });
     L.marker([b.lat, b.lon], { icon: icone, keyboard: false }).bindPopup(() => fiche(b)).addTo(marqueurs);
   }
   L.marker(WIMEREUX, { icon: L.divIcon({ className: "", html: '<span class="bouee ici lieu">Wimereux</span>', iconSize: [0, 0] }), interactive: false }).addTo(marqueurs);
