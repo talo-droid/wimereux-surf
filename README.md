@@ -252,6 +252,15 @@ journal.
 La bouée de référence affichée pour Calais est Goodwin Sands : le bateau-feu
 de Sandettie sous-estime la mer courte.
 
+## Si api-maree.fr tombe
+
+Les marées sont prévisibles : chaque calcul réussi garde les pleines et
+basses mers et les hauteurs d'eau dans `marees_cache.json`. Si api-maree.fr
+ne répond pas (c'est arrivé la nuit du 12 au 13 octobre 2026 : délais
+dépassés puis erreur 502), le calcul reprend cette copie au lieu de tomber.
+Elle couvre environ quatre jours d'avance, donc une panne de plusieurs
+heures passe inaperçue.
+
 ## La houle en direct
 
 La page `houle.html` (lien en bas de la page principale) montre la houle sur
@@ -270,6 +279,12 @@ Les bouées sont relevées toutes les 30 minutes en journée par
 `docs/houle.json` : le service du Cefas ne donne que la dernière mesure et
 n'accepte pas les appels depuis un navigateur. Le modèle, lui, est lu
 directement par la page.
+
+La bouée de la baie de Somme (Cerema, réseau Candhis, campagne 08002) ferme
+la carte au sud de Boulogne : elle est lue sur sa page publique, qui embarque
+les séries des deux derniers jours. Elle donne H1/3 (très proche de Hm0) et
+Th1/3, multipliée par 1,1 pour approcher la période pic des autres bouées. Par
+houle de sud, c'est elle qui donne de l'avance sur Wimereux.
 
 `diffusion.html` garde l'étude des rapports de hauteur entre bouées selon la
 direction de la houle (décembre 2024 → octobre 2026).

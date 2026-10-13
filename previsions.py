@@ -1141,7 +1141,80 @@ def _verifier_cle():
             "https://api-maree.fr/ puis définis API_MAREE_KEY.")
 
 
+# Les marées sont prévisibles des jours à l'avance : chaque calcul réussi
+# garde ce qu'api-maree.fr a renvoyé dans ce fichier. Si le service tombe
+# (ça arrive la nuit : délais dépassés, erreur 502), on reprend la copie au
+# lieu de perdre toute la prévision.
+CACHE_MAREE = Path(__file__).parent / "marees_cache.json"
+
+
+def _cache_maree_lire() -> dict:
+    try:
+        return json.loads(CACHE_MAREE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _cache_maree_ecrire(site: str, cle: str, valeurs: dict) -> None:
+    """valeurs : {instant ISO: donnée}. On fusionne et on oublie le passé."""
+    cache = _cache_maree_lire()
+    bloc = cache.setdefault(site, {}).setdefault(cle, {})
+    bloc.update(valeurs)
+    limite = (datetime.now() - timedelta(days=2)).isoformat()
+    cache[site][cle] = {k: v for k, v in sorted(bloc.items()) if k >= limite}
+    try:
+        CACHE_MAREE.write_text(json.dumps(cache, ensure_ascii=False, separators=(",", ":")),
+                               encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _cache_maree_couvre(site, cle, depuis, jusqu_a, marge_h=13):
+    """Les données gardées, si elles couvrent la période demandée."""
+    bloc = (_cache_maree_lire().get(site) or {}).get(cle) or {}
+    if not bloc:
+        return None
+    cles = sorted(bloc)
+    if cles[0] > (depuis + timedelta(hours=marge_h)).isoformat() or \
+            cles[-1] < (jusqu_a - timedelta(hours=marge_h)).isoformat():
+        return None
+    return {k: v for k, v in bloc.items()
+            if depuis.isoformat() <= k <= jusqu_a.isoformat()}
+
+
 def recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dict]:
+    try:
+        extrema = _recuperer_extrema_maree(sp, depuis, jusqu_a)
+    except Exception as e:
+        garde = _cache_maree_couvre(sp["site_maree"], "extrema", depuis, jusqu_a)
+        if garde is None:
+            raise
+        print(f"  marée : api-maree.fr indisponible ({e}), copie gardée utilisée",
+              file=sys.stderr)
+        return sorted(({**v, "instant": datetime.fromisoformat(k)} for k, v in garde.items()),
+                      key=lambda e: e["instant"])
+    _cache_maree_ecrire(sp["site_maree"], "extrema", {
+        e["instant"].isoformat(): {k: v for k, v in e.items() if k != "instant"}
+        for e in extrema})
+    return extrema
+
+
+def recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
+    try:
+        hauteurs = _recuperer_hauteurs_eau(sp, depuis, jusqu_a)
+    except Exception as e:
+        garde = _cache_maree_couvre(sp["site_maree"], "hauteurs", depuis, jusqu_a, marge_h=30)
+        if garde is None:
+            raise
+        print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), copie gardée utilisée",
+              file=sys.stderr)
+        return {datetime.fromisoformat(k): v for k, v in garde.items()}
+    _cache_maree_ecrire(sp["site_maree"], "hauteurs",
+                        {k.isoformat(): v for k, v in hauteurs.items()})
+    return hauteurs
+
+
+def _recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dict]:
     _verifier_cle()
     donnees = _get_json("https://api-maree.fr/tide-extrema",
                         {"site": sp["site_maree"], "from": depuis.date().isoformat(),
@@ -1160,7 +1233,7 @@ def recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dic
     return sorted(extrema, key=lambda e: e["instant"])
 
 
-def recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
+def _recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
     """Hauteur d'eau au pas de 30 min : il en faut deux par heure pour
     calculer proprement la dérivée dh/dt."""
     _verifier_cle()

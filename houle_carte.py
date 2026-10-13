@@ -9,7 +9,9 @@ temps réel entre l'île de Wight et le pas de Calais :
     celles du Channel Coastal Observatory (Pevensey, Rye, Folkestone,
     Goodwin…) et les bateaux-phares du Met Office (Sandettie, Greenwich) ;
   - la bouée d'Ambleteuse (Géodunes), avec le filtre des mesures parasites
-    de previsions.py.
+    de previsions.py ;
+  - la bouée de la baie de Somme (Cerema, réseau Candhis, campagne 08002),
+    lue sur sa page publique.
 
 Ces services ne donnent que la dernière mesure : l'historique, on le
 construit nous-mêmes en gardant les 36 dernières heures dans
@@ -27,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -109,6 +112,65 @@ def releve_ambleteuse() -> list[dict]:
     }]
 
 
+# Bouée Candhis de la baie de Somme (Cerema, campagne 08002). Pas d'API
+# ouverte : on lit la page publique de la campagne, qui embarque les séries
+# des deux derniers jours dans des tableaux JavaScript (arrDataPHP) :
+#   [0] date, H1/3, …, Hmax, …   [1] date, Th1/3   [2] date, direction au pic
+# Les heures y sont en temps universel. H1/3 est très proche de Hm0 ; la
+# période pic vaut à peu près 1,1 fois Th1/3.
+CANDHIS_PAGE = "https://candhis.cerema.fr/_public_/campagne.php?"
+CANDHIS_BOUEES = {"08002": ("Baie de Somme", 50.25, 1.335)}
+TH13_VERS_TP = 1.1
+
+
+def _candhis_series(html: str) -> dict:
+    import re
+    series = {}
+    for k, brut in re.findall(r"arrDataPHP\[(\d)\]\s*=\s*eval\('(.*?)'\)\s*;", html, re.S):
+        try:
+            series[int(k)] = {l[0]: l[1] for l in json.loads(brut) if len(l) > 1}
+        except (ValueError, TypeError, IndexError):
+            continue
+    return series
+
+
+def releve_candhis() -> list[dict]:
+    import base64
+    sortie = []
+    for camp, (nom, lat, lon) in CANDHIS_BOUEES.items():
+        url = CANDHIS_PAGE + base64.b64encode(f"camp={camp}".encode()).decode()
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "wimereux-surf/1.0 (+https://github.com/talo-droid/wimereux-surf)"})
+            with urllib.request.urlopen(req, timeout=45) as r:
+                html = r.read().decode("utf-8", "replace")
+        except Exception as e:
+            print(f"Candhis {camp} indisponible : {e}", file=sys.stderr)
+            continue
+        s = _candhis_series(html)
+        hauteurs = s.get(0) or {}
+        if not hauteurs:
+            print(f"Candhis {camp} : aucune série lue", file=sys.stderr)
+            continue
+        # Les points des dernières heures, pour remplir l'historique d'un coup.
+        for date in sorted(hauteurs)[-12:]:
+            try:
+                t = datetime.strptime(date, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+                h = float(hauteurs[date])
+            except (ValueError, TypeError):
+                continue
+            th = (s.get(1) or {}).get(date)
+            d = (s.get(2) or {}).get(date)
+            sortie.append({
+                "id": "CANDHIS" + camp, "nom": nom, "lat": lat, "lon": lon,
+                "mesure": [t.strftime("%Y-%m-%dT%H:%MZ"), round(h, 2),
+                           round(float(th) * TH13_VERS_TP, 1) if th is not None else None,
+                           float(d) if d is not None else None],
+                "phare": False,
+            })
+    return sortie
+
+
 def fusionner(ancien: dict, releves: list[dict], maintenant: datetime) -> dict:
     limite = (maintenant - timedelta(hours=GARDER_H)).strftime("%Y-%m-%dT%H:%MZ")
     bouees = {b["id"]: b for b in ancien.get("bouees", [])}
@@ -133,7 +195,7 @@ def main() -> int:
     args = p.parse_args()
 
     maintenant = datetime.now(timezone.utc)
-    releves = releve_cefas() + releve_ambleteuse()
+    releves = releve_cefas() + releve_ambleteuse() + releve_candhis()
     print(f"{len(releves)} bouées relevées.", file=sys.stderr)
     if not releves:
         return 0
