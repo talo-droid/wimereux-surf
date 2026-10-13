@@ -1121,7 +1121,41 @@ def recuperer_vent(sp, heures: int) -> dict[datetime, dict]:
     return resultat
 
 
+def soleil_calcule(lat, lon, jour) -> tuple:
+    """Lever et coucher du soleil calculés (formules NOAA, à la minute près),
+    en heure locale sans fuseau, comme les heures d'Open-Meteo."""
+    doy = jour.timetuple().tm_yday
+    g = 2 * math.pi / 365 * (doy - 1)
+    eq = 229.18 * (0.000075 + 0.001868 * math.cos(g) - 0.032077 * math.sin(g)
+                   - 0.014615 * math.cos(2 * g) - 0.040849 * math.sin(2 * g))
+    decl = (0.006918 - 0.399912 * math.cos(g) + 0.070257 * math.sin(g)
+            - 0.006758 * math.cos(2 * g) + 0.000907 * math.sin(2 * g)
+            - 0.002697 * math.cos(3 * g) + 0.00148 * math.sin(3 * g))
+    phi = math.radians(lat)
+    ha = math.degrees(math.acos(math.cos(math.radians(90.833)) / (math.cos(phi) * math.cos(decl))
+                                - math.tan(phi) * math.tan(decl)))
+    minuit = datetime(jour.year, jour.month, jour.day, tzinfo=timezone.utc)
+    lever = minuit + timedelta(minutes=720 - 4 * (lon + ha) - eq)
+    coucher = minuit + timedelta(minutes=720 - 4 * (lon - ha) - eq)
+    if _ZONE:
+        lever, coucher = lever.astimezone(_ZONE), coucher.astimezone(_ZONE)
+    return lever.replace(tzinfo=None), coucher.replace(tzinfo=None)
+
+
 def recuperer_soleil(sp, heures: int) -> dict:
+    """Lever et coucher du soleil. Open-Meteo d'abord ; s'il ne répond pas,
+    le calcul astronomique suffit : il n'y a pas de quoi bloquer la prévision."""
+    try:
+        return _recuperer_soleil(sp, heures)
+    except Exception as e:
+        print(f"  soleil : Open-Meteo indisponible ({e}), heures calculées", file=sys.stderr)
+        debut = maintenant().replace(tzinfo=None).date() - timedelta(days=1)
+        return {(debut + timedelta(days=k)).isoformat():
+                soleil_calcule(sp["point_spot"][0], sp["point_spot"][1], debut + timedelta(days=k))
+                for k in range((heures + 23) // 24 + 3)}
+
+
+def _recuperer_soleil(sp, heures: int) -> dict:
     donnees = _get_json(
         "https://api.open-meteo.com/v1/forecast",
         {"latitude": sp["point_spot"][0], "longitude": sp["point_spot"][1],
@@ -1217,32 +1251,45 @@ def _hauteurs_depuis_extrema(extrema, depuis, jusqu_a) -> dict:
     return out
 
 
+def _extrema_depuis_bloc(bloc) -> list[dict]:
+    return sorted(({**v, "instant": datetime.fromisoformat(k)} for k, v in bloc.items()),
+                  key=lambda e: e["instant"])
+
+
 def recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dict]:
+    """
+    Pleines et basses mers. La tâche « Marées » (marees.py) les prépare deux
+    fois par jour, dix jours à l'avance, dans marees_cache.json : le calcul
+    des notes n'appelle donc plus api-maree.fr, et une panne du service ne
+    le bloque plus. Ordre des recours : copie préparée, appel direct,
+    dernière prévision publiée.
+    """
+    site = sp["site_maree"]
+    garde = _cache_maree_couvre(site, "extrema", depuis, jusqu_a)
+    if garde is not None:
+        return _extrema_depuis_bloc(garde)
     try:
-        extrema = _recuperer_extrema_maree(sp, depuis, jusqu_a)
+        return _recuperer_extrema_maree(sp, depuis, jusqu_a)
     except Exception as e:
-        garde = _cache_maree_couvre(sp["site_maree"], "extrema", depuis, jusqu_a)
-        if garde is None:
-            garde = _extrema_derniere_prevision(sp["site_maree"], depuis, jusqu_a)
+        garde = _extrema_derniere_prevision(site, depuis, jusqu_a)
         if garde is None:
             raise
-        print(f"  marée : api-maree.fr indisponible ({e}), copie gardée utilisée",
+        print(f"  marée : api-maree.fr indisponible ({e}), marées de la dernière prévision",
               file=sys.stderr)
-        return sorted(({**v, "instant": datetime.fromisoformat(k)} for k, v in garde.items()),
-                      key=lambda e: e["instant"])
-    _cache_maree_ecrire(sp["site_maree"], "extrema", {
-        e["instant"].isoformat(): {k: v for k, v in e.items() if k != "instant"}
-        for e in extrema})
-    return extrema
+        return _extrema_depuis_bloc(garde)
 
 
 def recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
+    site = sp["site_maree"]
+    garde = _cache_maree_couvre(site, "hauteurs", depuis, jusqu_a, marge_h=1)
+    if garde is not None:
+        return {datetime.fromisoformat(k): v for k, v in garde.items()}
     try:
-        hauteurs = _recuperer_hauteurs_eau(sp, depuis, jusqu_a)
+        return _recuperer_hauteurs_eau(sp, depuis, jusqu_a)
     except Exception as e:
-        garde = _cache_maree_couvre(sp["site_maree"], "hauteurs", depuis, jusqu_a, marge_h=30)
+        garde = _cache_maree_couvre(site, "hauteurs", depuis, jusqu_a, marge_h=30)
         if garde is not None:
-            print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), copie gardée utilisée",
+            print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), copie partielle utilisée",
                   file=sys.stderr)
             return {datetime.fromisoformat(k): v for k, v in garde.items()}
         # Pas de copie : on reconstruit la courbe entre pleines et basses mers
@@ -1252,9 +1299,6 @@ def recuperer_hauteurs_eau(sp, depuis: datetime, jusqu_a: datetime) -> dict:
         print(f"  hauteurs d'eau : api-maree.fr indisponible ({e}), courbe recalculée "
               "à partir des pleines et basses mers", file=sys.stderr)
         return _hauteurs_depuis_extrema(extrema, depuis, jusqu_a)
-    _cache_maree_ecrire(sp["site_maree"], "hauteurs",
-                        {k.isoformat(): v for k, v in hauteurs.items()})
-    return hauteurs
 
 
 def _recuperer_extrema_maree(sp, depuis: datetime, jusqu_a: datetime) -> list[dict]:

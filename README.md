@@ -252,14 +252,28 @@ journal.
 La bouée de référence affichée pour Calais est Goodwin Sands : le bateau-feu
 de Sandettie sous-estime la mer courte.
 
-## Si api-maree.fr tombe
+## Des tâches séparées
 
-Les marées sont prévisibles : chaque calcul réussi garde les pleines et
-basses mers et les hauteurs d'eau dans `marees_cache.json`. Si api-maree.fr
-ne répond pas (c'est arrivé la nuit du 12 au 13 octobre 2026 : délais
-dépassés puis erreur 502), le calcul reprend cette copie au lieu de tomber.
-Elle couvre environ quatre jours d'avance, donc une panne de plusieurs
-heures passe inaperçue.
+Chaque source tombe un jour ou l'autre. Les tâches sont donc séparées pour
+qu'une panne n'en entraîne pas d'autres :
+
+| Tâche | Fichier | Quand | Si elle échoue |
+|---|---|---|---|
+| Prévisions Wimereux | `previsions.yml` | toutes les 3 h | la page garde les notes précédentes |
+| Marées | `marees.yml` | 2 fois par jour | les notes continuent sur la copie (10 jours) |
+| Bouée à la pleine mer | `maree.yml` | toutes les 20 min en journée | pas d'alerte « bonne surprise » |
+| Carte de la houle | `houle.yml` | toutes les 30 min en journée | la carte garde les derniers relevés |
+
+Les marées viennent d'api-maree.fr, mais seule la tâche « Marées » l'appelle :
+elle range pleines mers, basses mers et hauteurs d'eau des dix prochains jours
+dans `marees_cache.json`, que `previsions.py` lit en premier. Si la copie ne
+couvre pas la période, `previsions.py` appelle le service lui-même, puis se
+rabat sur les marées de la dernière prévision publiée et recalcule la courbe
+de hauteur d'eau entre pleines et basses mers (une dizaine de centimètres
+d'écart en moyenne). Le lever et le coucher du soleil, s'ils manquent, sont
+calculés (formules astronomiques, à quelques minutes près).
+
+Seules la houle et le vent (Open-Meteo) restent indispensables au calcul.
 
 ## La houle en direct
 
