@@ -1,18 +1,19 @@
 {
  "faits": [
-  "2026-10-15T15:18|0"
+  "2026-10-15T15:18|0",
+  "2026-10-16T15:52|-60"
  ],
  "surprise": null,
  "dernier": {
-  "le": "2026-10-15T15:47",
-  "moment": "à la pleine mer",
+  "le": "2026-10-16T15:30",
+  "moment": "1 h avant la pleine mer",
   "mesure": {
-   "nom": "Hastings",
-   "instant": "2026-10-15T15:00+02:00",
-   "hauteur_m": 0.97,
-   "periode_pic_s": 4.8,
-   "note_mesuree": 0.72,
-   "note_prevue": 0.64
+   "nom": null,
+   "instant": "2026-10-16T15:00+02:00",
+   "hauteur_m": 1.13,
+   "periode_pic_s": 4.26,
+   "note_mesuree": 0.0,
+   "note_prevue": 1.15
   }
  }
 }
