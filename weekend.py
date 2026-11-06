@@ -211,7 +211,10 @@ def analyser_jour(jour: date, houle: dict, vent: dict, ens: dict) -> dict:
             confiance = round(sum(parts) / len(parts), 2)
 
     affreux = journee_affreuse(heures)
-    if affreux:
+    if not heures:
+        # Les modèles ne vont pas encore jusque-là (environ 7 jours).
+        statut = "pas encore"
+    elif affreux:
         statut = "affreux"
     elif len(meilleure) >= DUREE_MIN_H:
         statut = "bon"
@@ -253,6 +256,8 @@ def analyser_jour(jour: date, houle: dict, vent: dict, ens: dict) -> dict:
 
 
 def verdict(jours: list[dict]) -> tuple[str, float | None]:
+    if any(j["statut"] == "pas encore" for j in jours):
+        return "PAS ENCORE", None
     bons = [j for j in jours if j["statut"] == "bon"]
     affreux = [j for j in jours if j["statut"] == "affreux"]
     confs = sorted((j["confiance"] for j in bons if j["confiance"] is not None),
@@ -282,6 +287,8 @@ def ligne_jour(j: dict) -> str:
         return f"{j['nom'].capitalize()} : à éviter ({j['raison']})"
     if j["statut"] == "venté":
         return f"{j['nom'].capitalize()} : de la houle mais trop de vent ({j['vent_max_kt']} nds)"
+    if j["statut"] == "pas encore":
+        return f"{j['nom'].capitalize()} : pas encore de prévision"
     return f"{j['nom'].capitalize()} : trop petit ({j['houle_max_m']:.1f} m max)"
 
 
@@ -293,7 +300,7 @@ def message(res: dict, etat: dict, aujourd_hui: date) -> str:
     cle = res["vendredi"]
     avant = etat.get(cle)
     v = res["verdict"]
-    if v == avant or (avant is None and v == "NON"):
+    if v == "PAS ENCORE" or v == avant or (avant is None and v == "NON"):
         return ""
     if v == "NON":
         tete = "Week-end Siouville : finalement NON"
