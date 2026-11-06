@@ -50,7 +50,7 @@
     display: grid; grid-template-columns: auto minmax(0, 1fr);
     gap: 0.5rem; align-items: center; padding: 0.7rem 0.8rem 0.5rem;
   }
-  .identite { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 5.2rem; }
+  .identite { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 5.6rem; }
   .barre h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; margin: 0; }
   .lapin { display: block; height: 48px; width: 51px; }
   .maj { color: var(--galet); font-size: 0.7rem; line-height: 1.2; text-align: center; }
@@ -63,9 +63,9 @@
   }
   .liens a:hover, .liens a:focus-visible { opacity: 1; }
   .liens svg { width: 100%; height: 100%; display: block; }
-  /* Feu du week-end à Siouville : vert GO, orange à surveiller, rouge non,
-     tout éteint tant que le verdict n'est pas calculé. */
-  .liens a.feu { width: 10px; opacity: 1; }
+  /* Van du week-end à Siouville : vert GO, orange à surveiller, rouge non,
+     gris tant que le verdict n'est pas calculé. Teintes pastel. */
+  .liens a.feu { width: 24px; opacity: 1; }
 
   /* ---- sélecteur de spot : pavillon ---- */
   .spots {
@@ -710,12 +710,18 @@ function feuSiouville() {
   a.href = "siouville.html";
   a.className = "feu";
   const v = WEEKEND && WEEKEND.verdict;
-  const allume = { "NON": 0, "À SURVEILLER": 1, "GO": 2 }[v];
-  const couleurs = ["#C0392B", "#E09A1E", "#2E9E5B"];
-  const lampes = couleurs.map((c, i) =>
-    `<circle cx="5" cy="${4 + i * 6}" r="2.2" fill="${i === allume ? c : "#9AABAE"}"` +
-    `${i === allume ? "" : " opacity=\".45\""}/>`).join("");
-  a.innerHTML = `<svg viewBox="0 0 10 18" aria-hidden="true"><rect x="0.6" y="0.6" width="8.8" height="16.8" rx="2.4" fill="#123239"/>${lampes}</svg>`;
+  const teinte = { "GO": "#A8DDB9", "À SURVEILLER": "#F6D29A", "NON": "#F1B3AE" }[v] || "#CBD5D6";
+  const t = "#123239";
+  a.innerHTML = `<svg viewBox="0 0 24 18" aria-hidden="true" fill="none" stroke="${t}" stroke-width="1.05" stroke-linejoin="round" stroke-linecap="round">` +
+    `<path d="M5 4.2 Q11 0.8 18 3.6 Z" fill="${teinte}"/>` +
+    `<path d="M8 3.4v1.6M15 3.4v1.6"/>` +
+    `<path d="M3.2 13.4V8.6Q3.2 5.4 6.4 5.4H16.6Q19.4 5.4 20.4 8.2L21.6 11.2V13.4Z" fill="${teinte}"/>` +
+    `<path d="M3.4 9.8H21" />` +
+    `<rect x="5" y="6.8" width="4" height="2.2" rx="0.8" fill="#F4F7F6"/>` +
+    `<rect x="10.4" y="6.8" width="4" height="2.2" rx="0.8" fill="#F4F7F6"/>` +
+    `<path d="M15.8 6.8H18.3L19.2 9H15.8Z" fill="#F4F7F6"/>` +
+    `<circle cx="7.2" cy="14" r="1.9" fill="#F4F7F6"/><circle cx="17.2" cy="14" r="1.9" fill="#F4F7F6"/>` +
+    `</svg>`;
   a.title = "Week-end à Siouville — " + (v ? (v === "PAS ENCORE" ? "verdict lundi" : v) : "voir la page");
   a.setAttribute("aria-label", a.title);
   return a;
