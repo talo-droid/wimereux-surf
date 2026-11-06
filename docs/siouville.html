@@ -37,6 +37,7 @@
   .v-GO { background: var(--go); }
   .v-SURVEILLER { background: var(--surveiller); }
   .v-NON { background: var(--non); }
+  .v-ATTENTE { background: var(--galet); }
   .jour { margin: 0 1rem 0.8rem; background: var(--craie); border: 1px solid var(--trait); border-radius: 10px; padding: 0.7rem 0.9rem; }
   .jour h2 { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 1.15rem; margin: 0 0 0.2rem; display: flex; justify-content: space-between; gap: 0.5rem; }
   .etiquette { font-family: "Barlow Semi Condensed", sans-serif; font-size: 0.85rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; color: var(--craie); align-self: center; }
@@ -63,18 +64,22 @@
 <script>
 const fleche = d => "↓↙←↖↑↗→↘"[Math.round(((d % 360) + 360) % 360 / 45) % 8];
 const ETIQ = { "bon": ["bon", "e-bon"], "affreux": ["à éviter", "e-affreux"],
-               "venté": ["venté", "e-vente"], "trop petit": ["trop petit", "e-petit"] };
+               "venté": ["venté", "e-vente"], "trop petit": ["trop petit", "e-petit"],
+               "pas encore": ["pas encore", "e-petit"] };
 const date = s => new Date(s + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
 fetch("weekend.json?t=" + Date.now()).then(r => r.json()).then(d => {
   document.getElementById("sous").textContent =
     `Du vendredi ${date(d.vendredi)} au dimanche ${date(d.dimanche)} · calculé le ` +
     new Date(d.maj).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" });
-  const cls = d.verdict === "GO" ? "v-GO" : d.verdict === "NON" ? "v-NON" : "v-SURVEILLER";
+  const cls = d.verdict === "GO" ? "v-GO" : d.verdict === "NON" ? "v-NON"
+            : d.verdict === "PAS ENCORE" ? "v-ATTENTE" : "v-SURVEILLER";
   const conf = d.confiance != null ? `confiance du vent ${Math.round(d.confiance * 100)} %` : "";
   const nbBons = d.jours.filter(j => j.statut === "bon").length;
   document.getElementById("verdict").innerHTML =
-    `<div class="verdict ${cls}"><b>${d.verdict}</b><span>${nbBons} journée${nbBons > 1 ? "s" : ""} bonne${nbBons > 1 ? "s" : ""} sur 3${conf ? " · " + conf : ""}</span></div>`;
+    d.verdict === "PAS ENCORE"
+      ? `<div class="verdict ${cls}"><b>Pas encore</b><span>Les prévisions vont à 7 jours : le verdict arrive lundi matin.</span></div>`
+      : `<div class="verdict ${cls}"><b>${d.verdict}</b><span>${nbBons} journée${nbBons > 1 ? "s" : ""} bonne${nbBons > 1 ? "s" : ""} sur 3${conf ? " · " + conf : ""}</span></div>`;
   document.getElementById("jours").innerHTML = d.jours.map(j => {
     const [lib, c] = ETIQ[j.statut] || [j.statut, "e-petit"];
     let detail;
@@ -83,6 +88,8 @@ fetch("weekend.json?t=" + Date.now()).then(r => r.json()).then(d => {
       detail = `Meilleur créneau ${k.debut}–${k.fin} : ${k.hauteur_m.toFixed(1)} m à ${k.tpeak_s.toFixed(0)} s, ` +
         `vent ${k.vent_kt} nds ${fleche(k.dir_vent)}` +
         (j.confiance != null ? ` · confiance ${Math.round(j.confiance * 100)} %` : "");
+    } else if (j.statut === "pas encore") {
+      detail = "Pas encore de prévision pour ce jour.";
     } else if (j.statut === "affreux") {
       detail = `À éviter : ${j.raison}.`;
     } else if (j.statut === "venté") {
