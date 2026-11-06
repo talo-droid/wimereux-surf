@@ -1,0 +1,61 @@
+name: Week-end Siouville
+
+# Regarde le prochain week-end (vendredi → dimanche) à Siouville et prévient,
+# du lundi au jeudi, quand il vaut le déplacement. Tâche séparée : si elle
+# échoue, les prévisions de Wimereux et Calais n'en souffrent pas.
+
+on:
+  schedule:
+    # 6 h 25 et 17 h 25 en hiver (heures UTC : +1 h en hiver, +2 h en été).
+    - cron: "25 5,16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekend
+  cancel-in-progress: false
+
+jobs:
+  regarder:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Paris
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Noter le week-end
+        run: |
+          python weekend.py > message.txt
+          if [ -s message.txt ]; then cat message.txt; fi
+
+      - name: Notifier
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ ! -s message.txt ] || [ -z "$NTFY_TOPIC" ]; then exit 0; fi
+          curl -sS --fail-with-body \
+            -H "Title: Week-end Siouville" \
+            -H "Tags: car,ocean" \
+            -H "Click: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/siouville.html" \
+            --data-binary @message.txt \
+            "https://ntfy.sh/$NTFY_TOPIC"
+
+      - name: Publier
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/weekend.json
+          if [ -f etat_weekend.json ]; then git add etat_weekend.json; fi
+          git diff --staged --quiet && exit 0
+          git commit -m "Week-end Siouville $(date +'%Y-%m-%d %H:%M')"
+          for essai in 1 2 3; do
+            git pull --rebase --quiet && git push && exit 0
+            sleep $((essai * 10))
+          done
+          exit 1
