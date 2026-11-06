@@ -252,6 +252,28 @@ journal.
 La bouée de référence affichée pour Calais est Goodwin Sands : le bateau-feu
 de Sandettie sous-estime la mer courte.
 
+## Le week-end à Siouville
+
+Siouville-Hague, plage ouverte à l'ouest dans le Cotentin, est à quatre heures
+de route : on n'y va que si le séjour entier vaut le coup. `weekend.py`
+regarde le prochain week-end, du vendredi au dimanche, et rend un verdict sur
+`docs/siouville.html` :
+
+- **une journée est bonne** s'il y a au moins deux heures de suite, de jour,
+  avec 1 m et 7 s de houle d'ouest à nord-ouest, et un vent faible (sous
+  10 nœuds) ou offshore d'est à sud-est jusqu'à 18 nœuds ;
+- **une journée est à éviter** s'il y a des rafales de 40 nœuds, du vent fort
+  toute la journée ou un orage ;
+- **GO** : deux bonnes journées sur trois, et aucune à éviter. **À
+  surveiller** : pareil mais les prévisions de vent divergent, ou une seule
+  bonne journée et une autre venteuse. **NON** sinon.
+
+La confiance est la part des 51 versions de la prévision d'ensemble du Centre
+européen qui donnent, elles aussi, un vent acceptable sur le meilleur
+créneau. Une notification part du lundi au jeudi quand le verdict change
+(premier GO, passage en « à surveiller », annulation). Tâche séparée :
+`weekend.yml`, deux fois par jour.
+
 ## Des tâches séparées
 
 Chaque source tombe un jour ou l'autre. Les tâches sont donc séparées pour
@@ -263,6 +285,7 @@ qu'une panne n'en entraîne pas d'autres :
 | Marées | `marees.yml` | 2 fois par jour | les notes calculent la marée elles-mêmes |
 | Bouée à la pleine mer | `maree.yml` | toutes les 20 min en journée | pas d'alerte « bonne surprise » |
 | Carte de la houle | `houle.yml` | toutes les 30 min en journée | la carte garde les derniers relevés |
+| Week-end Siouville | `weekend.yml` | 2 fois par jour | pas d'alerte week-end |
 
 Les marées viennent d'api-maree.fr, mais seule la tâche « Marées » l'appelle :
 elle range pleines mers, basses mers et hauteurs d'eau des dix prochains jours
