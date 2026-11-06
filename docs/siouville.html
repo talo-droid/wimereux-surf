@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123239">
+<link rel="icon" type="image/png" sizes="192x192" href="icone-192.png">
+<title>Week-end Siouville</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brume: #DCE4E3; --craie: #F4F7F6; --ardoise: #123239; --galet: #6B7F83;
+    --trait: #C2CFCE; --accent: #1F5F6B;
+    --go: #2E7D4F; --surveiller: #B07A1E; --non: #8A3B3B;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0 auto; padding: 0 0 3rem; max-width: 48rem;
+    background: var(--brume); color: var(--ardoise);
+    font-family: "Barlow Semi Condensed", "Roboto Condensed", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.4;
+  }
+  a { color: var(--accent); }
+  header { padding: 0.9rem 1rem 0.4rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1rem; }
+  header h1 { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 1.5rem; margin: 0; }
+  header nav { margin-left: auto; font-size: 0.9rem; }
+  .sous { color: var(--galet); font-size: 0.9rem; margin: 0 1rem 0.8rem; }
+  .verdict {
+    margin: 0 1rem 1rem; padding: 0.9rem 1rem; border-radius: 10px; color: var(--craie);
+    display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap;
+  }
+  .verdict b { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 2rem; line-height: 1; }
+  .verdict span { font-size: 0.95rem; opacity: 0.92; }
+  .v-GO { background: var(--go); }
+  .v-SURVEILLER { background: var(--surveiller); }
+  .v-NON { background: var(--non); }
+  .jour { margin: 0 1rem 0.8rem; background: var(--craie); border: 1px solid var(--trait); border-radius: 10px; padding: 0.7rem 0.9rem; }
+  .jour h2 { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 1.15rem; margin: 0 0 0.2rem; display: flex; justify-content: space-between; gap: 0.5rem; }
+  .etiquette { font-family: "Barlow Semi Condensed", sans-serif; font-size: 0.85rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; color: var(--craie); align-self: center; }
+  .e-bon { background: var(--go); } .e-affreux { background: var(--non); }
+  .e-vente, .e-petit { background: var(--galet); }
+  .detail { font-size: 0.95rem; }
+  .heures { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(3.1rem, 1fr); gap: 2px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.78rem; text-align: center; }
+  .heures div { padding: 3px 0; border-radius: 4px; background: var(--brume); }
+  .heures div.ok { background: #CDE6D6; font-weight: 600; }
+  .heures small { display: block; color: var(--galet); font-weight: 400; }
+  .note { margin: 1rem; color: var(--galet); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Week-end à Siouville</h1>
+  <nav><a href="index.html">← Prévisions</a></nav>
+</header>
+<p class="sous" id="sous">Chargement…</p>
+<div id="verdict"></div>
+<div id="jours"></div>
+<p class="note" id="regles"></p>
+
+<script>
+const fleche = d => "↓↙←↖↑↗→↘"[Math.round(((d % 360) + 360) % 360 / 45) % 8];
+const ETIQ = { "bon": ["bon", "e-bon"], "affreux": ["à éviter", "e-affreux"],
+               "venté": ["venté", "e-vente"], "trop petit": ["trop petit", "e-petit"] };
+const date = s => new Date(s + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+
+fetch("weekend.json?t=" + Date.now()).then(r => r.json()).then(d => {
+  document.getElementById("sous").textContent =
+    `Du vendredi ${date(d.vendredi)} au dimanche ${date(d.dimanche)} · calculé le ` +
+    new Date(d.maj).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" });
+  const cls = d.verdict === "GO" ? "v-GO" : d.verdict === "NON" ? "v-NON" : "v-SURVEILLER";
+  const conf = d.confiance != null ? `confiance du vent ${Math.round(d.confiance * 100)} %` : "";
+  const nbBons = d.jours.filter(j => j.statut === "bon").length;
+  document.getElementById("verdict").innerHTML =
+    `<div class="verdict ${cls}"><b>${d.verdict}</b><span>${nbBons} journée${nbBons > 1 ? "s" : ""} bonne${nbBons > 1 ? "s" : ""} sur 3${conf ? " · " + conf : ""}</span></div>`;
+  document.getElementById("jours").innerHTML = d.jours.map(j => {
+    const [lib, c] = ETIQ[j.statut] || [j.statut, "e-petit"];
+    let detail;
+    if (j.creneau) {
+      const k = j.creneau;
+      detail = `Meilleur créneau ${k.debut}–${k.fin} : ${k.hauteur_m.toFixed(1)} m à ${k.tpeak_s.toFixed(0)} s, ` +
+        `vent ${k.vent_kt} nds ${fleche(k.dir_vent)}` +
+        (j.confiance != null ? ` · confiance ${Math.round(j.confiance * 100)} %` : "");
+    } else if (j.statut === "affreux") {
+      detail = `À éviter : ${j.raison}.`;
+    } else if (j.statut === "venté") {
+      detail = `De la houle (jusqu'à ${j.houle_max_m.toFixed(1)} m) mais du vent, jusqu'à ${j.vent_max_kt} nds.`;
+    } else {
+      detail = `Trop petit : ${j.houle_max_m.toFixed(1)} m au plus.`;
+    }
+    const heures = j.heures.map(h =>
+      `<div class="${h.ok ? "ok" : ""}">${h.h}h<small>${h.houle.toFixed(1)} m</small><small>${h.t.toFixed(0)} s</small><small>${h.vent} nds ${fleche(h.dv)}</small></div>`).join("");
+    return `<section class="jour"><h2>${j.nom.charAt(0).toUpperCase() + j.nom.slice(1)}<span class="etiquette ${c}">${lib}</span></h2>
+      <div class="detail">${detail}</div><div class="heures">${heures}</div></section>`;
+  }).join("");
+  const k = d.criteres;
+  document.getElementById("regles").innerHTML =
+    `Une journée est bonne s'il y a au moins deux heures de suite, de jour, avec ${k.houle_min_m} m et ${k.periode_min_s} s de houle ` +
+    `d'ouest à nord-ouest et un vent sous ${k.vent_calme_kt} nds (ou offshore d'est à sud-est jusqu'à ${k.vent_offshore_max_kt} nds). ` +
+    `GO : deux bonnes journées sur trois, et pas de tempête la troisième (rafales de 40 nds, vent fort toute la journée ou orage). ` +
+    `La confiance est la part des 51 versions de la prévision européenne qui donnent, elles aussi, un vent acceptable. ` +
+    `La marée n'entre pas dans le verdict : il y a chaque jour un créneau de marée qui convient.`;
+}).catch(() => {
+  document.getElementById("sous").textContent = "Pas encore de calcul pour le prochain week-end.";
+});
+</script>
+</body>
+</html>
