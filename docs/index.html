@@ -50,7 +50,7 @@
     display: grid; grid-template-columns: auto minmax(0, 1fr);
     gap: 0.5rem; align-items: center; padding: 0.7rem 0.8rem 0.5rem;
   }
-  .identite { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 4.2rem; }
+  .identite { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 5.2rem; }
   .barre h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; margin: 0; }
   .lapin { display: block; height: 48px; width: 51px; }
   .maj { color: var(--galet); font-size: 0.7rem; line-height: 1.2; text-align: center; }
@@ -63,6 +63,9 @@
   }
   .liens a:hover, .liens a:focus-visible { opacity: 1; }
   .liens svg { width: 100%; height: 100%; display: block; }
+  /* Feu du week-end à Siouville : vert GO, orange à surveiller, rouge non,
+     tout éteint tant que le verdict n'est pas calculé. */
+  .liens a.feu { width: 10px; opacity: 1; }
 
   /* ---- sélecteur de spot : pavillon ---- */
   .spots {
@@ -698,7 +701,30 @@ function majLiens(spot) {
     a.innerHTML = ICONES[cle];
     zone.append(a);
   });
+  zone.append(feuSiouville());
 }
+
+let WEEKEND = null;
+function feuSiouville() {
+  const a = document.createElement("a");
+  a.href = "siouville.html";
+  a.className = "feu";
+  const v = WEEKEND && WEEKEND.verdict;
+  const allume = { "NON": 0, "À SURVEILLER": 1, "GO": 2 }[v];
+  const couleurs = ["#C0392B", "#E09A1E", "#2E9E5B"];
+  const lampes = couleurs.map((c, i) =>
+    `<circle cx="5" cy="${4 + i * 6}" r="2.2" fill="${i === allume ? c : "#9AABAE"}"` +
+    `${i === allume ? "" : " opacity=\".45\""}/>`).join("");
+  a.innerHTML = `<svg viewBox="0 0 10 18" aria-hidden="true"><rect x="0.6" y="0.6" width="8.8" height="16.8" rx="2.4" fill="#123239"/>${lampes}</svg>`;
+  a.title = "Week-end à Siouville — " + (v ? (v === "PAS ENCORE" ? "verdict lundi" : v) : "voir la page");
+  a.setAttribute("aria-label", a.title);
+  return a;
+}
+fetch("weekend.json?t=" + Date.now()).then(r => r.json()).then(w => {
+  WEEKEND = w;
+  const vieux = document.querySelector("#liens a.feu");
+  if (vieux) vieux.replaceWith(feuSiouville());
+}).catch(() => {});
 
 let DONNEES = null;
 let SPOT_ACTIF = 0;
