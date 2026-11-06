@@ -1,0 +1,51 @@
+{
+ "maj": "2026-11-06T08:44",
+ "vendredi": "2026-11-13",
+ "dimanche": "2026-11-15",
+ "verdict": "NON",
+ "confiance": null,
+ "criteres": {
+  "houle_min_m": 1.0,
+  "periode_min_s": 7.0,
+  "vent_calme_kt": 10.0,
+  "vent_offshore_max_kt": 18.0
+ },
+ "jours": [
+  {
+   "date": "2026-11-13",
+   "nom": "vendredi 13",
+   "statut": "trop petit",
+   "raison": null,
+   "creneau": null,
+   "confiance": null,
+   "houle_max_m": 0,
+   "vent_max_kt": 0,
+   "rafales_max_kt": 0,
+   "heures": []
+  },
+  {
+   "date": "2026-11-14",
+   "nom": "samedi 14",
+   "statut": "trop petit",
+   "raison": null,
+   "creneau": null,
+   "confiance": null,
+   "houle_max_m": 0,
+   "vent_max_kt": 0,
+   "rafales_max_kt": 0,
+   "heures": []
+  },
+  {
+   "date": "2026-11-15",
+   "nom": "dimanche 15",
+   "statut": "trop petit",
+   "raison": null,
+   "creneau": null,
+   "confiance": null,
+   "houle_max_m": 0,
+   "vent_max_kt": 0,
+   "rafales_max_kt": 0,
+   "heures": []
+  }
+ ]
+}
