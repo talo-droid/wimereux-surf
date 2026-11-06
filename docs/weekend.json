@@ -1,8 +1,8 @@
 {
- "maj": "2026-11-06T08:44",
+ "maj": "2026-11-06T08:57",
  "vendredi": "2026-11-13",
  "dimanche": "2026-11-15",
- "verdict": "NON",
+ "verdict": "PAS ENCORE",
  "confiance": null,
  "criteres": {
   "houle_min_m": 1.0,
@@ -14,7 +14,7 @@
   {
    "date": "2026-11-13",
    "nom": "vendredi 13",
-   "statut": "trop petit",
+   "statut": "pas encore",
    "raison": null,
    "creneau": null,
    "confiance": null,
@@ -26,7 +26,7 @@
   {
    "date": "2026-11-14",
    "nom": "samedi 14",
-   "statut": "trop petit",
+   "statut": "pas encore",
    "raison": null,
    "creneau": null,
    "confiance": null,
@@ -38,7 +38,7 @@
   {
    "date": "2026-11-15",
    "nom": "dimanche 15",
-   "statut": "trop petit",
+   "statut": "pas encore",
    "raison": null,
    "creneau": null,
    "confiance": null,
