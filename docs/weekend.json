@@ -1,8 +1,8 @@
 {
- "maj": "2026-11-07T21:20",
+ "maj": "2026-11-08T21:37",
  "vendredi": "2026-11-13",
  "dimanche": "2026-11-15",
- "verdict": "PAS ENCORE",
+ "verdict": "NON",
  "confiance": null,
  "criteres": {
   "houle_min_m": 1.0,
@@ -18,80 +18,80 @@
    "raison": null,
    "creneau": null,
    "confiance": null,
-   "houle_max_m": 1.28,
-   "vent_max_kt": 17,
-   "rafales_max_kt": 30,
+   "houle_max_m": 1.8,
+   "vent_max_kt": 12,
+   "rafales_max_kt": 21,
    "heures": [
     {
      "h": 8,
-     "houle": 1.28,
-     "t": 5.7,
-     "vent": 14,
-     "dv": 73,
+     "houle": 1.8,
+     "t": 5.8,
+     "vent": 12,
+     "dv": 63,
      "ok": false
     },
     {
      "h": 9,
-     "houle": 1.24,
-     "t": 5.5,
-     "vent": 15,
-     "dv": 74,
+     "houle": 1.78,
+     "t": 5.8,
+     "vent": 11,
+     "dv": 64,
      "ok": false
     },
     {
      "h": 10,
-     "houle": 1.2,
-     "t": 5.4,
-     "vent": 16,
-     "dv": 75,
+     "houle": 1.78,
+     "t": 5.8,
+     "vent": 11,
+     "dv": 66,
      "ok": false
     },
     {
      "h": 11,
-     "houle": 1.18,
-     "t": 5.3,
-     "vent": 16,
-     "dv": 77,
+     "houle": 1.74,
+     "t": 5.8,
+     "vent": 12,
+     "dv": 71,
      "ok": false
     },
     {
      "h": 12,
-     "houle": 1.18,
-     "t": 5.2,
-     "vent": 16,
-     "dv": 78,
+     "houle": 1.68,
+     "t": 5.7,
+     "vent": 12,
+     "dv": 75,
      "ok": false
     },
     {
      "h": 13,
-     "houle": 1.16,
-     "t": 5.2,
-     "vent": 16,
+     "houle": 1.64,
+     "t": 5.6,
+     "vent": 12,
      "dv": 80,
      "ok": false
     },
     {
      "h": 14,
-     "houle": 1.12,
-     "t": 5.0,
-     "vent": 16,
-     "dv": 81,
+     "houle": 1.54,
+     "t": 5.5,
+     "vent": 11,
+     "dv": 84,
      "ok": false
     },
     {
      "h": 15,
-     "houle": 1.1,
-     "t": 5.0,
-     "vent": 17,
-     "dv": 81,
+     "houle": 1.46,
+     "t": 5.5,
+     "vent": 9,
+     "dv": 88,
      "ok": false
     },
     {
      "h": 16,
-     "houle": 1.06,
-     "t": 4.9,
-     "vent": 17,
-     "dv": 82,
+     "houle": 1.36,
+     "t": 5.4,
+     "vent": 8,
+     "dv": 92,
      "ok": false
     }
    ]
@@ -103,80 +103,80 @@
    "raison": null,
    "creneau": null,
    "confiance": null,
-   "houle_max_m": 0.8,
-   "vent_max_kt": 11,
-   "rafales_max_kt": 20,
+   "houle_max_m": 0.52,
+   "vent_max_kt": 8,
+   "rafales_max_kt": 14,
    "heures": [
     {
      "h": 8,
-     "houle": 0.66,
-     "t": 4.1,
-     "vent": 11,
-     "dv": 114,
+     "houle": 0.52,
+     "t": 5.2,
+     "vent": 6,
+     "dv": 129,
      "ok": false
     },
     {
      "h": 9,
-     "houle": 0.64,
-     "t": 4.1,
-     "vent": 11,
-     "dv": 115,
+     "houle": 0.5,
+     "t": 5.2,
+     "vent": 7,
+     "dv": 127,
      "ok": false
     },
     {
      "h": 10,
-     "houle": 0.62,
-     "t": 4.0,
-     "vent": 10,
-     "dv": 117,
+     "houle": 0.48,
+     "t": 5.2,
+     "vent": 7,
+     "dv": 126,
      "ok": false
     },
     {
      "h": 11,
-     "houle": 0.64,
-     "t": 4.0,
-     "vent": 10,
-     "dv": 119,
+     "houle": 0.48,
+     "t": 5.0,
+     "vent": 8,
+     "dv": 125,
      "ok": false
     },
     {
      "h": 12,
-     "houle": 0.68,
-     "t": 3.9,
-     "vent": 10,
-     "dv": 120,
+     "houle": 0.48,
+     "t": 4.9,
+     "vent": 8,
+     "dv": 124,
      "ok": false
     },
     {
      "h": 13,
-     "houle": 0.7,
-     "t": 3.8,
-     "vent": 10,
-     "dv": 122,
+     "houle": 0.48,
+     "t": 4.7,
+     "vent": 8,
+     "dv": 123,
      "ok": false
     },
     {
      "h": 14,
-     "houle": 0.74,
-     "t": 3.8,
-     "vent": 9,
-     "dv": 86,
+     "houle": 0.5,
+     "t": 4.5,
+     "vent": 8,
+     "dv": 126,
      "ok": false
     },
     {
      "h": 15,
-     "houle": 0.76,
-     "t": 3.8,
-     "vent": 9,
-     "dv": 83,
+     "houle": 0.5,
+     "t": 4.4,
+     "vent": 8,
+     "dv": 129,
      "ok": false
     },
     {
      "h": 16,
-     "houle": 0.8,
-     "t": 3.9,
+     "houle": 0.52,
+     "t": 4.3,
      "vent": 8,
-     "dv": 79,
+     "dv": 132,
      "ok": false
     }
    ]
@@ -184,14 +184,87 @@
   {
    "date": "2026-11-15",
    "nom": "dimanche 15",
-   "statut": "pas encore",
+   "statut": "trop petit",
    "raison": null,
    "creneau": null,
    "confiance": null,
-   "houle_max_m": 0,
-   "vent_max_kt": 0,
-   "rafales_max_kt": 0,
-   "heures": []
+   "houle_max_m": 0.64,
+   "vent_max_kt": 10,
+   "rafales_max_kt": 18,
+   "heures": [
+    {
+     "h": 8,
+     "houle": 0.54,
+     "t": 4.7,
+     "vent": 8,
+     "dv": 211,
+     "ok": false
+    },
+    {
+     "h": 9,
+     "houle": 0.56,
+     "t": 4.5,
+     "vent": 9,
+     "dv": 207,
+     "ok": false
+    },
+    {
+     "h": 10,
+     "houle": 0.58,
+     "t": 4.3,
+     "vent": 9,
+     "dv": 202,
+     "ok": false
+    },
+    {
+     "h": 11,
+     "houle": 0.6,
+     "t": 4.3,
+     "vent": 10,
+     "dv": 197,
+     "ok": false
+    },
+    {
+     "h": 12,
+     "houle": 0.62,
+     "t": 4.3,
+     "vent": 10,
+     "dv": 193,
+     "ok": false
+    },
+    {
+     "h": 13,
+     "houle": 0.64,
+     "t": 4.3,
+     "vent": 10,
+     "dv": 188,
+     "ok": false
+    },
+    {
+     "h": 14,
+     "houle": 0.64,
+     "t": 4.3,
+     "vent": 9,
+     "dv": 152,
+     "ok": false
+    },
+    {
+     "h": 15,
+     "houle": 0.62,
+     "t": 4.5,
+     "vent": 9,
+     "dv": 157,
+     "ok": false
+    },
+    {
+     "h": 16,
+     "houle": 0.62,
+     "t": 4.5,
+     "vent": 9,
+     "dv": 161,
+     "ok": false
+    }
+   ]
   }
  ]
 }
