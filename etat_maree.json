@@ -1,19 +1,11 @@
 {
  "faits": [
-  "2026-10-23T10:58|0",
-  "2026-10-24T11:35|-60"
+  "2026-11-08T11:17|0"
  ],
  "surprise": null,
  "dernier": {
-  "le": "2026-10-24T10:29",
-  "moment": "1 h avant la pleine mer",
-  "mesure": {
-   "nom": null,
-   "instant": "2026-10-24T10:00+02:00",
-   "hauteur_m": 1.74,
-   "periode_pic_s": 7.32,
-   "note_mesuree": 2.33,
-   "note_prevue": 2.21
-  }
+  "le": "2026-11-08T11:52",
+  "moment": "à la pleine mer",
+  "mesure": null
  }
 }
