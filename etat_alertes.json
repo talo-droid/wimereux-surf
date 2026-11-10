@@ -1,5 +1,10 @@
 {
- "annonces": {},
+ "annonces": {
+  "calais|surf|2026-11-13": {
+   "note": 3.11,
+   "debut": "2026-11-13T16:00:00"
+  }
+ },
  "immediats": [],
  "surprise": null
 }
