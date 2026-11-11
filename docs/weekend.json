@@ -1,5 +1,5 @@
 {
- "maj": "2026-11-10T22:51",
+ "maj": "2026-11-11T13:50",
  "vendredi": "2026-11-13",
  "dimanche": "2026-11-15",
  "verdict": "NON",
@@ -18,80 +18,80 @@
    "raison": null,
    "creneau": null,
    "confiance": null,
-   "houle_max_m": 0.78,
-   "vent_max_kt": 5,
-   "rafales_max_kt": 10,
+   "houle_max_m": 0.68,
+   "vent_max_kt": 10,
+   "rafales_max_kt": 15,
    "heures": [
     {
      "h": 8,
-     "houle": 0.78,
+     "houle": 0.68,
      "t": 4.7,
-     "vent": 5,
+     "vent": 10,
      "dv": 38,
      "ok": false
     },
     {
      "h": 9,
-     "houle": 0.74,
-     "t": 4.6,
+     "houle": 0.66,
+     "t": 4.7,
+     "vent": 9,
+     "dv": 41,
+     "ok": false
+    },
+    {
+     "h": 10,
+     "houle": 0.62,
+     "t": 4.7,
+     "vent": 9,
+     "dv": 42,
+     "ok": false
+    },
+    {
+     "h": 11,
+     "houle": 0.56,
+     "t": 4.8,
+     "vent": 9,
+     "dv": 42,
+     "ok": false
+    },
+    {
+     "h": 12,
+     "houle": 0.52,
+     "t": 4.9,
+     "vent": 7,
+     "dv": 42,
+     "ok": false
+    },
+    {
+     "h": 13,
+     "houle": 0.48,
+     "t": 5.0,
+     "vent": 8,
+     "dv": 40,
+     "ok": false
+    },
+    {
+     "h": 14,
+     "houle": 0.44,
+     "t": 5.0,
+     "vent": 5,
+     "dv": 45,
+     "ok": false
+    },
+    {
+     "h": 15,
+     "houle": 0.42,
+     "t": 5.0,
      "vent": 5,
      "dv": 40,
      "ok": false
     },
     {
-     "h": 10,
-     "houle": 0.7,
-     "t": 4.6,
-     "vent": 4,
-     "dv": 43,
-     "ok": false
-    },
-    {
-     "h": 11,
-     "houle": 0.66,
-     "t": 4.6,
-     "vent": 4,
-     "dv": 47,
-     "ok": false
-    },
-    {
-     "h": 12,
-     "houle": 0.62,
-     "t": 4.6,
-     "vent": 5,
-     "dv": 51,
-     "ok": false
-    },
-    {
-     "h": 13,
-     "houle": 0.58,
-     "t": 4.6,
-     "vent": 5,
-     "dv": 55,
-     "ok": false
-    },
-    {
-     "h": 14,
-     "houle": 0.54,
-     "t": 4.7,
-     "vent": 5,
-     "dv": 51,
-     "ok": false
-    },
-    {
-     "h": 15,
-     "houle": 0.5,
-     "t": 4.7,
-     "vent": 5,
-     "dv": 48,
-     "ok": false
-    },
-    {
      "h": 16,
-     "houle": 0.46,
-     "t": 4.7,
-     "vent": 4,
-     "dv": 44,
+     "houle": 0.4,
+     "t": 4.9,
+     "vent": 5,
+     "dv": 36,
      "ok": false
     }
    ]
@@ -103,80 +103,80 @@
    "raison": null,
    "creneau": null,
    "confiance": null,
-   "houle_max_m": 0.56,
+   "houle_max_m": 0.58,
    "vent_max_kt": 8,
    "rafales_max_kt": 14,
    "heures": [
     {
      "h": 8,
-     "houle": 0.42,
-     "t": 6.0,
+     "houle": 0.46,
+     "t": 5.6,
      "vent": 6,
-     "dv": 131,
+     "dv": 137,
      "ok": false
     },
     {
      "h": 9,
-     "houle": 0.42,
-     "t": 5.9,
-     "vent": 6,
-     "dv": 131,
+     "houle": 0.46,
+     "t": 5.5,
+     "vent": 7,
+     "dv": 135,
      "ok": false
     },
     {
      "h": 10,
-     "houle": 0.44,
-     "t": 5.7,
-     "vent": 6,
-     "dv": 131,
+     "houle": 0.48,
+     "t": 5.3,
+     "vent": 7,
+     "dv": 134,
      "ok": false
     },
     {
      "h": 11,
-     "houle": 0.46,
-     "t": 5.5,
+     "houle": 0.52,
+     "t": 5.1,
      "vent": 7,
-     "dv": 126,
+     "dv": 131,
      "ok": false
     },
     {
      "h": 12,
-     "houle": 0.48,
-     "t": 5.2,
-     "vent": 7,
-     "dv": 122,
+     "houle": 0.54,
+     "t": 4.8,
+     "vent": 8,
+     "dv": 128,
      "ok": false
     },
     {
      "h": 13,
-     "houle": 0.5,
-     "t": 4.9,
+     "houle": 0.58,
+     "t": 4.7,
      "vent": 8,
-     "dv": 117,
+     "dv": 125,
      "ok": false
     },
     {
      "h": 14,
-     "houle": 0.52,
-     "t": 4.8,
+     "houle": 0.58,
+     "t": 4.7,
      "vent": 8,
-     "dv": 108,
+     "dv": 121,
      "ok": false
     },
     {
      "h": 15,
-     "houle": 0.54,
-     "t": 4.7,
+     "houle": 0.56,
+     "t": 4.8,
      "vent": 7,
-     "dv": 99,
+     "dv": 117,
      "ok": false
     },
     {
      "h": 16,
      "houle": 0.56,
-     "t": 4.6,
+     "t": 4.9,
      "vent": 7,
-     "dv": 90,
+     "dv": 113,
      "ok": false
     }
    ]
@@ -184,84 +184,84 @@
   {
    "date": "2026-11-15",
    "nom": "dimanche 15",
-   "statut": "trop petit",
-   "raison": null,
+   "statut": "affreux",
+   "raison": "orage",
    "creneau": null,
    "confiance": null,
-   "houle_max_m": 0.8,
-   "vent_max_kt": 7,
-   "rafales_max_kt": 13,
+   "houle_max_m": 1.26,
+   "vent_max_kt": 11,
+   "rafales_max_kt": 19,
    "heures": [
     {
      "h": 8,
-     "houle": 0.5,
-     "t": 5.6,
-     "vent": 4,
-     "dv": 85,
+     "houle": 0.62,
+     "t": 5.2,
+     "vent": 8,
+     "dv": 187,
      "ok": false
     },
     {
      "h": 9,
-     "houle": 0.54,
-     "t": 5.3,
-     "vent": 4,
-     "dv": 82,
+     "houle": 0.66,
+     "t": 5.0,
+     "vent": 8,
+     "dv": 182,
      "ok": false
     },
     {
      "h": 10,
-     "houle": 0.56,
-     "t": 5.0,
-     "vent": 4,
-     "dv": 80,
+     "houle": 0.7,
+     "t": 4.7,
+     "vent": 9,
+     "dv": 176,
      "ok": false
     },
     {
      "h": 11,
-     "houle": 0.62,
-     "t": 4.8,
-     "vent": 5,
-     "dv": 76,
+     "houle": 0.82,
+     "t": 4.5,
+     "vent": 10,
+     "dv": 177,
      "ok": false
     },
     {
      "h": 12,
-     "houle": 0.68,
-     "t": 4.5,
-     "vent": 6,
-     "dv": 71,
+     "houle": 0.92,
+     "t": 4.2,
+     "vent": 10,
+     "dv": 179,
      "ok": false
     },
     {
      "h": 13,
-     "houle": 0.74,
-     "t": 4.4,
-     "vent": 7,
-     "dv": 67,
+     "houle": 1.04,
+     "t": 4.2,
+     "vent": 11,
+     "dv": 180,
      "ok": false
     },
     {
      "h": 14,
-     "houle": 0.76,
-     "t": 4.3,
-     "vent": 7,
-     "dv": 67,
+     "houle": 1.12,
+     "t": 4.2,
+     "vent": 11,
+     "dv": 180,
      "ok": false
     },
     {
      "h": 15,
-     "houle": 0.78,
-     "t": 4.3,
-     "vent": 7,
-     "dv": 67,
+     "houle": 1.18,
+     "t": 4.2,
+     "vent": 11,
+     "dv": 181,
      "ok": false
     },
     {
      "h": 16,
-     "houle": 0.8,
-     "t": 4.3,
-     "vent": 6,
-     "dv": 67,
+     "houle": 1.26,
+     "t": 4.4,
+     "vent": 10,
+     "dv": 181,
      "ok": false
     }
    ]
