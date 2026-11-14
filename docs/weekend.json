@@ -1,5 +1,5 @@
 {
- "maj": "2026-11-13T23:02",
+ "maj": "2026-11-14T21:49",
  "vendredi": "2026-11-20",
  "dimanche": "2026-11-22",
  "verdict": "PAS ENCORE",
@@ -17,89 +17,89 @@
    "statut": "bon",
    "raison": null,
    "creneau": {
-    "debut": "08:00",
+    "debut": "09:00",
     "fin": "17:00",
-    "hauteur_m": 1.98,
-    "tpeak_s": 9.6,
-    "dir_houle": 298,
-    "vent_kt": 9,
-    "dir_vent": 56
+    "hauteur_m": 2.92,
+    "tpeak_s": 8.4,
+    "dir_houle": 282,
+    "vent_kt": 10,
+    "dir_vent": 38
    },
-   "confiance": 0.41,
-   "houle_max_m": 2.06,
-   "vent_max_kt": 9,
-   "rafales_max_kt": 16,
+   "confiance": 0.69,
+   "houle_max_m": 3.12,
+   "vent_max_kt": 10,
+   "rafales_max_kt": 18,
    "heures": [
     {
      "h": 8,
-     "houle": 2.06,
-     "t": 10.2,
-     "vent": 1,
-     "dv": 11,
-     "ok": true
+     "houle": 3.12,
+     "t": 9.1,
+     "vent": 10,
+     "dv": 31,
+     "ok": false
     },
     {
      "h": 9,
-     "houle": 2.06,
-     "t": 9.9,
-     "vent": 3,
-     "dv": 22,
+     "houle": 3.02,
+     "t": 8.9,
+     "vent": 10,
+     "dv": 32,
      "ok": true
     },
     {
      "h": 10,
-     "houle": 2.04,
-     "t": 9.8,
-     "vent": 5,
-     "dv": 34,
+     "houle": 2.94,
+     "t": 8.7,
+     "vent": 10,
+     "dv": 33,
      "ok": true
     },
     {
      "h": 11,
-     "houle": 2.02,
-     "t": 9.7,
-     "vent": 6,
-     "dv": 45,
+     "houle": 2.92,
+     "t": 8.6,
+     "vent": 9,
+     "dv": 35,
      "ok": true
     },
     {
      "h": 12,
-     "houle": 2.0,
-     "t": 9.6,
+     "houle": 2.9,
+     "t": 8.4,
      "vent": 8,
-     "dv": 56,
+     "dv": 36,
      "ok": true
     },
     {
      "h": 13,
-     "houle": 1.98,
-     "t": 9.4,
-     "vent": 9,
-     "dv": 67,
+     "houle": 2.88,
+     "t": 8.2,
+     "vent": 7,
+     "dv": 38,
      "ok": true
     },
     {
      "h": 14,
-     "houle": 1.94,
-     "t": 9.3,
-     "vent": 7,
-     "dv": 151,
+     "houle": 2.88,
+     "t": 8.2,
+     "vent": 6,
+     "dv": 37,
      "ok": true
     },
     {
      "h": 15,
-     "houle": 1.88,
-     "t": 9.2,
-     "vent": 7,
-     "dv": 142,
+     "houle": 2.9,
+     "t": 8.1,
+     "vent": 5,
+     "dv": 36,
      "ok": true
     },
     {
      "h": 16,
-     "houle": 1.84,
-     "t": 9.1,
-     "vent": 7,
-     "dv": 128,
+     "houle": 2.9,
+     "t": 8.0,
+     "vent": 4,
+     "dv": 35,
      "ok": true
     }
    ]
@@ -107,14 +107,95 @@
   {
    "date": "2026-11-21",
    "nom": "samedi 21",
-   "statut": "pas encore",
+   "statut": "bon",
    "raison": null,
-   "creneau": null,
-   "confiance": null,
-   "houle_max_m": 0,
-   "vent_max_kt": 0,
-   "rafales_max_kt": 0,
-   "heures": []
+   "creneau": {
+    "debut": "08:00",
+    "fin": "11:00",
+    "hauteur_m": 1.25,
+    "tpeak_s": 7.8,
+    "dir_houle": 280,
+    "vent_kt": 9,
+    "dir_vent": 169
+   },
+   "confiance": 0.52,
+   "houle_max_m": 1.3,
+   "vent_max_kt": 12,
+   "rafales_max_kt": 22,
+   "heures": [
+    {
+     "h": 8,
+     "houle": 1.3,
+     "t": 7.9,
+     "vent": 6,
+     "dv": 166,
+     "ok": true
+    },
+    {
+     "h": 9,
+     "houle": 1.24,
+     "t": 7.8,
+     "vent": 8,
+     "dv": 169,
+     "ok": true
+    },
+    {
+     "h": 10,
+     "houle": 1.2,
+     "t": 7.6,
+     "vent": 9,
+     "dv": 172,
+     "ok": true
+    },
+    {
+     "h": 11,
+     "houle": 1.2,
+     "t": 7.3,
+     "vent": 10,
+     "dv": 174,
+     "ok": false
+    },
+    {
+     "h": 12,
+     "houle": 1.2,
+     "t": 6.9,
+     "vent": 11,
+     "dv": 177,
+     "ok": false
+    },
+    {
+     "h": 13,
+     "houle": 1.2,
+     "t": 6.5,
+     "vent": 12,
+     "dv": 179,
+     "ok": false
+    },
+    {
+     "h": 14,
+     "houle": 1.2,
+     "t": 6.3,
+     "vent": 12,
+     "dv": 132,
+     "ok": false
+    },
+    {
+     "h": 15,
+     "houle": 1.18,
+     "t": 6.2,
+     "vent": 12,
+     "dv": 130,
+     "ok": false
+    },
+    {
+     "h": 16,
+     "houle": 1.18,
+     "t": 6.0,
+     "vent": 12,
+     "dv": 128,
+     "ok": false
+    }
+   ]
   },
   {
    "date": "2026-11-22",
