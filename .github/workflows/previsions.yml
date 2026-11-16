@@ -80,7 +80,8 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # marees_cache.json est tenu par la tâche « Marées », pas ici.
-          git add docs/data.json archives/ etat_alertes.json observations/
+          python widget.py || true
+          git add docs/data.json docs/widget.json archives/ etat_alertes.json observations/
           git diff --staged --quiet || git commit -m "Prévisions $(date -u +'%Y-%m-%d %H:%M UTC')"
           # Le contrôle à la pleine mer (maree.yml) peut avoir publié entre-temps.
           for essai in 1 2 3; do
