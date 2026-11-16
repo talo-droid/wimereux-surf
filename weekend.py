@@ -183,6 +183,9 @@ def analyser_jour(jour: date, houle: dict, vent: dict, ens: dict) -> dict:
         hh, vv = houle.get(t), vent.get(t)
         if not hh or not vv:
             continue
+        # En bout d'échéance, les modèles rendent parfois des heures vides.
+        if None in (hh.get("hauteur_m"), hh.get("tpeak_s"), vv.get("vitesse_kt")):
+            continue
         orage = P.risque_orage(vv.get("code_meteo"), vv.get("cape"), vv.get("lifted_index"))
         heures.append({
             "instant": t, "hauteur_m": hh["hauteur_m"], "tpeak_s": hh["tpeak_s"],
