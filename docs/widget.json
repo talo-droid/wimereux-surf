@@ -1,18 +1,18 @@
 {
- "maj": "20/11 20h59",
- "w_surf": "2.3",
+ "maj": "21/11 03h06",
+ "w_surf": "2.4",
  "w_surf_q": "sam 10h",
  "w_surf_c": "#C0762A",
  "w_wing": "0.4",
  "w_wing_q": "dim 08h",
  "w_wing_c": "#6B7F83",
- "c_surf": "3.2",
+ "c_surf": "2.9",
  "c_surf_q": "lun 10h",
  "c_surf_c": "#96851B",
- "c_wing": "3.1",
+ "c_wing": "2.9",
  "c_wing_q": "dim 13h",
  "c_wing_c": "#96851B",
- "top": "Calais 3.2 lun 10h",
+ "top": "Calais 2.9 lun 10h",
  "siou": "pas encore",
  "siou_c": "#CBD5D6"
 }
