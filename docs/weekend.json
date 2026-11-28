@@ -1,5 +1,5 @@
 {
- "maj": "2026-11-27T16:20",
+ "maj": "2026-11-28T01:09",
  "vendredi": "2026-12-04",
  "dimanche": "2026-12-06",
  "verdict": "PAS ENCORE",
@@ -14,14 +14,79 @@
   {
    "date": "2026-12-04",
    "nom": "vendredi 4",
-   "statut": "pas encore",
+   "statut": "trop petit",
    "raison": null,
    "creneau": null,
    "confiance": null,
-   "houle_max_m": 0,
-   "vent_max_kt": 0,
-   "rafales_max_kt": 0,
-   "heures": []
+   "houle_max_m": 0.8,
+   "vent_max_kt": 5,
+   "rafales_max_kt": 12,
+   "heures": [
+    {
+     "h": 9,
+     "houle": 0.8,
+     "t": 7.5,
+     "vent": 1,
+     "dv": 63,
+     "ok": false
+    },
+    {
+     "h": 10,
+     "houle": 0.8,
+     "t": 7.6,
+     "vent": 1,
+     "dv": 60,
+     "ok": false
+    },
+    {
+     "h": 11,
+     "houle": 0.78,
+     "t": 7.7,
+     "vent": 1,
+     "dv": 56,
+     "ok": false
+    },
+    {
+     "h": 12,
+     "houle": 0.78,
+     "t": 7.8,
+     "vent": 1,
+     "dv": 53,
+     "ok": false
+    },
+    {
+     "h": 13,
+     "houle": 0.76,
+     "t": 7.8,
+     "vent": 1,
+     "dv": 50,
+     "ok": false
+    },
+    {
+     "h": 14,
+     "houle": 0.76,
+     "t": 8.0,
+     "vent": 5,
+     "dv": 144,
+     "ok": false
+    },
+    {
+     "h": 15,
+     "houle": 0.74,
+     "t": 8.0,
+     "vent": 4,
+     "dv": 142,
+     "ok": false
+    },
+    {
+     "h": 16,
+     "houle": 0.74,
+     "t": 8.1,
+     "vent": 4,
+     "dv": 139,
+     "ok": false
+    }
+   ]
   },
   {
    "date": "2026-12-05",
